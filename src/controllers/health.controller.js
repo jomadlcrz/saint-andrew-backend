@@ -1,0 +1,50 @@
+/**
+ * Health & Diagnostics Controller
+ */
+
+const config = require('../config/env.config');
+const { isFirebaseInitialized } = require('../config/firebase.config');
+const brevoService = require('../services/brevo.service');
+const semaphoreService = require('../services/semaphore.service');
+
+/**
+ * Basic health check endpoint
+ * GET /
+ */
+function getHealth(req, res) {
+  // If request specifically accepts plain text, respond with standard 'ok' for pingers
+  if (req.headers.accept && !req.headers.accept.includes('application/json') && req.headers.accept.includes('text/plain')) {
+    return res.status(200).send('ok');
+  }
+
+  return res.status(200).json({
+    status: 'online',
+    service: 'Saint Andrew Funeral Home Backend Microservice',
+    version: '2.0.0',
+    mode: isFirebaseInitialized ? 'production' : 'development',
+    services: {
+      firebase: isFirebaseInitialized ? 'connected' : 'unconfigured',
+      semaphoreSms: semaphoreService.isConfigured() ? 'live' : 'simulated',
+      brevoEmail: brevoService.isConfigured() ? 'configured' : 'unconfigured',
+    },
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
+ * Brevo Account API Diagnostics
+ * GET /test-brevo
+ */
+async function testBrevo(req, res, next) {
+  try {
+    const result = await brevoService.testConnection();
+    return res.status(result.status).json(result.data);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = {
+  getHealth,
+  testBrevo,
+};
