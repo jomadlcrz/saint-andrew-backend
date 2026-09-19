@@ -2,6 +2,8 @@
 
 Guidance for Claude Code and AI assistants working in the **`saint-andrew-backend`** repository.
 
+@AGENTS.md
+
 ## Commands
 
 ```powershell
@@ -11,13 +13,4 @@ node test.js          # Run endpoint test suite
 # or on Windows: .\start-backend.ps1
 ```
 
-## Architecture
-- **Layered Structure**: `src/routes/` ➔ `src/controllers/` ➔ `src/services/`
-- **Integrations**: Semaphore SMS API, Brevo SMTP API, Firebase Admin SDK
-- **Templates**: `src/templates/` holds Calm Memorial branded HTML and SMS formatters
-
-## Rules
-- Do NOT add frontend/UI dependencies (React, Vite, CSS).
-- Preserve all existing REST endpoints: `/`, `/send-balance-sms`, `/send-support-email`, `/send-otp-email`, `/verify-otp`, `/send-password-reset`.
-- Never commit `.env` or `service-account.json`.
-- All errors must be handled by `src/middleware/error.middleware.js` returning `{ success: false, error: "..." }`.
+Architecture, layering rules, error-handling conventions, and the API contract immutability rule live in [`AGENTS.md`](AGENTS.md) (imported above) — edit that file, not this one, when conventions change.

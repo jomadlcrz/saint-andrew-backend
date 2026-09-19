@@ -8,6 +8,7 @@ const config = require('./config/env.config');
 const { isFirebaseInitialized } = require('./config/firebase.config');
 const semaphoreService = require('./services/semaphore.service');
 const brevoService = require('./services/brevo.service');
+const { initializeReminderCron } = require('./services/preplan-reminder.service');
 
 const server = app.listen(config.port, () => {
   const modeLabel = isFirebaseInitialized
@@ -33,6 +34,9 @@ const server = app.listen(config.port, () => {
   console.log(`🩺 Health Endpoint:     http://localhost:${config.port}/`);
   console.log(`🔍 Brevo Test:          http://localhost:${config.port}/test-brevo`);
   console.log('============================================================\n');
+
+  // Start background cron jobs
+  initializeReminderCron();
 });
 
 // Handle graceful shutdown
