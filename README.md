@@ -9,7 +9,7 @@ Enterprise-grade, modular Node.js / Express microservice handling transactional 
 The backend is structured according to **Clean Layered Architecture**, separating transport (routes), business logic (controllers), external integrations (services), presentation (templates), and infrastructure (config/middleware).
 
 ```text
-backend/
+saint-andrew-backend/
 ├── src/
 │   ├── config/               # Configuration & SDK initialization
 │   │   ├── env.config.js     # Validated environment variables with defaults
@@ -161,13 +161,13 @@ All HTML transactional templates follow the canonical **Calm Memorial** visual i
 
 ### Local Development
 ```powershell
-cd backend
 npm install
 npm start
+# or on Windows: .\start-backend.ps1
 ```
 
 ### Environment Variables
-Configure `.env` in the `backend/` directory:
+Configure `.env` in this directory:
 ```env
 PORT=3000
 SEMAPHORE_API_KEY=your_semaphore_key
@@ -177,3 +177,13 @@ FIREBASE_SERVICE_ACCOUNT_JSON=...
 ```
 
 *If `FIREBASE_SERVICE_ACCOUNT_JSON` is not provided in `.env`, the backend automatically looks for local `service-account.json` or runs in development simulation mode.*
+
+---
+
+## 📚 Documentation Reference
+- [System Architecture](ARCHITECTURE.md)
+- [Coding Guidelines for AI Agents](AGENTS.md)
+- [Quick CLI Commands](CLAUDE.md)
+- [Data Dictionary & API Schemas](docs/funeral-system-complete-reference.md)
+- [Production Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+
