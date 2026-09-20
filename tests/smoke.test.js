@@ -6,7 +6,7 @@ const http = require('http');
 
 const options = {
   hostname: 'localhost',
-  port: 3000,
+  port: process.env.PORT || 3000,
   path: '/',
   method: 'GET',
 };

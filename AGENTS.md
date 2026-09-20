@@ -59,5 +59,11 @@ npm install
 npm start
 
 # Run endpoint sanity checks
-node test.js
+npm test
+
+# Run the security regression suite (auth, authorization, rate limiting, OTP lockout)
+# against a running server — start the server on a test port first, e.g.:
+#   PORT=3099 npm start
+# then in another terminal:
+PORT=3099 npm run test:security
 ```

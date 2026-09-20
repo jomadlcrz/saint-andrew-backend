@@ -2,10 +2,7 @@
  * Health & Diagnostics Controller
  */
 
-const config = require('../config/env.config');
-const { isFirebaseInitialized } = require('../config/firebase.config');
 const brevoService = require('../services/brevo.service');
-const semaphoreService = require('../services/semaphore.service');
 
 /**
  * Basic health check endpoint
@@ -21,12 +18,6 @@ function getHealth(req, res) {
     status: 'online',
     service: 'Saint Andrew Funeral Home Backend Microservice',
     version: '2.0.0',
-    mode: isFirebaseInitialized ? 'production' : 'development',
-    services: {
-      firebase: isFirebaseInitialized ? 'connected' : 'unconfigured',
-      semaphoreSms: semaphoreService.isConfigured() ? 'live' : 'simulated',
-      brevoEmail: brevoService.isConfigured() ? 'configured' : 'unconfigured',
-    },
     timestamp: new Date().toISOString(),
   });
 }

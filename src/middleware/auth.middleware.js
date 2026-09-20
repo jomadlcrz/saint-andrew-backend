@@ -3,17 +3,24 @@
  */
 
 const config = require('../config/env.config');
-const { auth, isFirebaseInitialized } = require('../config/firebase.config');
+const { auth, db, isFirebaseInitialized } = require('../config/firebase.config');
 
 /**
  * Validates Firebase ID Token from the Authorization header.
- * Falls back to simulation mode in development if Firebase is unconfigured.
+ * Falls back to simulation mode only in development. In production, an
+ * unconfigured Firebase Admin SDK fails the request closed (503) rather
+ * than silently granting access.
  */
 async function verifyFirebaseAuth(req, res, next) {
-  // If Firebase Admin is not active, permit in development mode with a warning
   if (!isFirebaseInitialized || !auth) {
-    req.user = { uid: 'dev-user', email: 'dev@saintandrew.test', role: 'admin' };
-    return next();
+    if (config.isDevelopment) {
+      req.user = { uid: 'dev-user', email: 'dev@saintandrew.test', role: 'admin' };
+      return next();
+    }
+    console.error('❌ [Auth Middleware] Firebase Admin is unavailable in production — rejecting request.');
+    return res.status(503).json({
+      error: 'Authentication service is temporarily unavailable.',
+    });
   }
 
   const authHeader = req.headers.authorization || '';
@@ -48,6 +55,44 @@ async function verifyFirebaseAuth(req, res, next) {
   }
 }
 
+/**
+ * Requires the authenticated caller to be an active admin/staff account.
+ * Must run after verifyFirebaseAuth. Looks up role/status from Firestore
+ * `/users/{uid}` — the same authorization model documented in AGENTS.md
+ * for admin-web — since role is not carried as a Firebase Auth custom claim.
+ */
+async function requireAdminRole(req, res, next) {
+  const uid = req.user?.uid;
+  if (!uid) {
+    return res.status(401).json({ error: 'Authentication is required.' });
+  }
+
+  // Development bypass already stamps req.user.role = 'admin' directly.
+  if (req.user.role === 'admin' && !isFirebaseInitialized) {
+    return next();
+  }
+
+  if (!isFirebaseInitialized || !db) {
+    return res.status(503).json({ error: 'Authorization service is temporarily unavailable.' });
+  }
+
+  try {
+    const userDoc = await db.collection('users').doc(uid).get();
+    const data = userDoc.exists ? userDoc.data() : null;
+
+    if (!data || data.role !== 'admin' || data.status !== 'active') {
+      console.warn(`⚠️ [Auth Middleware] Non-admin caller ${uid} was denied an admin-only endpoint.`);
+      return res.status(403).json({ error: 'This action requires an active admin account.' });
+    }
+
+    return next();
+  } catch (err) {
+    console.error('❌ [Auth Middleware] Failed to verify admin role:', err.message);
+    return res.status(500).json({ error: 'Unable to verify account permissions.' });
+  }
+}
+
 module.exports = {
   verifyFirebaseAuth,
+  requireAdminRole,
 };

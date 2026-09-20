@@ -7,7 +7,19 @@ const crypto = require('crypto');
 const { db, isFirebaseInitialized } = require('../config/firebase.config');
 
 const OTP_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_VERIFY_ATTEMPTS = 5;
 const memoryOtpStore = new Map();
+
+/**
+ * Constant-time string comparison to avoid leaking match-length information
+ * through response timing. Both inputs are fixed 6-digit codes.
+ */
+function timingSafeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 /**
  * Generates a cryptographically random 6-digit OTP string.
@@ -35,6 +47,7 @@ async function storeOtp(email, otp) {
     otp,
     createdAt: now.getTime(),
     verified: false,
+    attempts: 0,
   });
 
   // Save to Firestore if available
@@ -43,6 +56,7 @@ async function storeOtp(email, otp) {
       otp,
       createdAt: now,
       verified: false,
+      attempts: 0,
     });
   }
 }
@@ -75,6 +89,7 @@ async function verifyOtp(email, candidateOtp) {
         otp: String(data.otp).trim(),
         createdAt: createdAtMs,
         verified: Boolean(data.verified),
+        attempts: Number(data.attempts) || 0,
         docRef: docRef,
       };
     }
@@ -103,7 +118,22 @@ async function verifyOtp(email, candidateOtp) {
     return { valid: false, reason: 'OTP has expired. Please request a new OTP.' };
   }
 
-  if (otpData.otp !== trimmedOtp) {
+  if ((otpData.attempts || 0) >= MAX_VERIFY_ATTEMPTS) {
+    if (otpData.docRef) {
+      await otpData.docRef.delete().catch(() => {});
+    }
+    memoryOtpStore.delete(normalizedEmail);
+    return { valid: false, reason: 'Too many failed attempts. Please request a new OTP.' };
+  }
+
+  if (!timingSafeEqual(otpData.otp, trimmedOtp)) {
+    const nextAttempts = (otpData.attempts || 0) + 1;
+    if (otpData.docRef) {
+      await otpData.docRef.update({ attempts: nextAttempts }).catch(() => {});
+    }
+    if (memoryOtpStore.has(normalizedEmail)) {
+      memoryOtpStore.get(normalizedEmail).attempts = nextAttempts;
+    }
     return { valid: false, reason: 'Invalid verification code. Please check and try again.' };
   }
 
