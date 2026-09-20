@@ -1,0 +1,22 @@
+# What NOT to upload when deploying Cloud Functions (functions.source is ".",
+# the whole backend root, so this matters — keep secrets and cruft out).
+.git
+.gitignore
+node_modules/
+
+.env
+.env.*
+!.env.example
+
+service-account.json
+funeral-system-*.json
+
+*.md
+docs/
+.agents/
+.claude/
+.vscode/
+
+test.js
+start-backend.ps1
+render.yaml

@@ -61,6 +61,17 @@ try {
     isInitialized = true;
 
     console.log('✅ [Firebase] Admin SDK initialized successfully (Firestore & Auth active)');
+  } else if (process.env.FUNCTION_TARGET || process.env.K_SERVICE || process.env.FUNCTIONS_EMULATOR) {
+    // Running inside Firebase Cloud Functions / Cloud Run in the same
+    // project — Application Default Credentials are available for free,
+    // no explicit service account key needed.
+    admin.initializeApp();
+    adminInstance = admin;
+    dbInstance = admin.firestore();
+    authInstance = admin.auth();
+    isInitialized = true;
+
+    console.log('✅ [Firebase] Admin SDK initialized via Application Default Credentials (Cloud Functions)');
   } else {
     console.log('⚠️ [Firebase] No credentials found. Running in Development Mode without Firebase.');
   }
