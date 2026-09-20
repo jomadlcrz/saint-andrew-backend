@@ -1,6 +1,7 @@
 node_modules/
 .env
-.env.local
+.env.*
+!.env.example
 *.json.secret
 service-account.json
 funeral-system-*.json

@@ -6,10 +6,13 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load environment variables from .env file
-dotenv.config({ override: true });
-
+// Load environment variables — .env.production when NODE_ENV=production
+// (e.g. for a local production dry-run), otherwise .env. Render's own
+// dashboard env vars are still the actual source of truth at deploy time,
+// since this file isn't present on Render's filesystem (it's gitignored).
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const envFile = NODE_ENV === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: envFile, override: true });
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 const SEMAPHORE_API_KEY = (process.env.SEMAPHORE_API_KEY || '').trim();
