@@ -5,6 +5,7 @@
 
 const { admin, isFirebaseInitialized } = require('../config/firebase.config');
 const otpService = require('../services/otp.service');
+const resetTokenService = require('../services/reset-token.service');
 const brevoService = require('../services/brevo.service');
 const { getOtpEmailTemplate, getResetLinkEmailTemplate } = require('../templates/email.templates');
 
@@ -87,11 +88,96 @@ async function verifyOtp(req, res, next) {
       });
     }
 
+    // Issue a short-lived, single-use token authorizing the password change
+    // that must follow. The OTP itself is now consumed and cannot be reused.
+    const resetToken = await resetTokenService.issueResetToken(email);
+
     console.log(`✅ [Auth] OTP verified successfully for ${email}`);
 
     return res.status(200).json({
       success: true,
       message: 'OTP verified successfully.',
+      resetToken,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * Resets the admin's password after OTP verification, using the single-use
+ * reset token issued by verifyOtp. Passwords are hashed and stored by
+ * Firebase Auth via the Admin SDK — the project's existing auth store.
+ * POST /reset-password
+ */
+async function resetPassword(req, res, next) {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const token = String(req.body?.token || '').trim();
+    const newPassword = String(req.body?.newPassword || '');
+    const confirmPassword = String(req.body?.confirmPassword || '');
+
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({
+        error: 'A valid email address is required.',
+      });
+    }
+
+    if (!token) {
+      return res.status(400).json({
+        error: 'A valid reset session is required. Please verify your code again.',
+      });
+    }
+
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({
+        error: 'Please enter and confirm your new password.',
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        error: 'Passwords do not match.',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        error: 'Password must be at least 6 characters long.',
+      });
+    }
+
+    if (!isFirebaseInitialized || !admin) {
+      return res.status(503).json({
+        error: 'Authentication service is not available on the server.',
+      });
+    }
+
+    const tokenResult = await resetTokenService.verifyAndConsumeResetToken(email, token);
+    if (!tokenResult.valid) {
+      return res.status(400).json({
+        error: tokenResult.reason || 'Invalid or expired reset session. Please verify your code again.',
+      });
+    }
+
+    try {
+      const userRecord = await admin.auth().getUserByEmail(email);
+      await admin.auth().updateUser(userRecord.uid, { password: newPassword });
+    } catch (err) {
+      console.error(`❌ [Auth] Error updating password for ${email}:`, err.message);
+      return res.status(400).json({
+        error: 'Unable to reset password. Please try again.',
+      });
+    }
+
+    // Clean up any lingering OTP session now that the password has changed.
+    await otpService.clearOtp(email);
+
+    console.log(`✅ [Auth] Password reset successfully for ${email}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset successfully.',
     });
   } catch (err) {
     return next(err);
@@ -173,5 +259,6 @@ async function sendResetLink(req, res, next) {
 module.exports = {
   sendOtpEmail,
   verifyOtp,
+  resetPassword,
   sendResetLink,
 };

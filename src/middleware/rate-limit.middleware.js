@@ -38,6 +38,16 @@ const resetLinkLimiter = rateLimit({
   handler: jsonRateLimitHandler('Too many reset link requests. Please try again in 15 minutes.'),
 });
 
+// Password reset: bounds attempts to redeem a reset token against a wrong
+// or brute-forced value.
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many password reset attempts. Please try again in 15 minutes.'),
+});
+
 const supportEmailLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
@@ -58,6 +68,7 @@ module.exports = {
   otpRequestLimiter,
   otpVerifyLimiter,
   resetLinkLimiter,
+  resetPasswordLimiter,
   supportEmailLimiter,
   smsLimiter,
 };
