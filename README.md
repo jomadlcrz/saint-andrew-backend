@@ -1,6 +1,6 @@
 # St. Andrew Funeral Home - Backend Microservice
 
-Enterprise-grade, modular Node.js / Express microservice handling transactional communications, SMS dispatches, email delivery, and OTP authentication workflows for **St. Andrew Funeral Home V2.0**.
+Enterprise-grade, modular Node.js / Express microservice handling transactional communications, SMS dispatches, email delivery, and OTP authentication workflows for **St. Andrew Funeral Home**.
 
 ---
 

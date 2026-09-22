@@ -1,8 +1,8 @@
 # Funeral System: Complete Menu, Data, API, Collections, and Conversion Reference
 
-Scope: St. Andrew Funeral Home V2.0 Modernization  
+Scope: St. Andrew Funeral Home Modernization  
 Source Project: `C:\Users\jomadlcrz\Desktop\Saint-Andrew-Funeral-Home`  
-Target Project: `C:\Users\jomadlcrz\Desktop\Saint-Andrew-Funeral-Home-V2.0`  
+Target Project: `C:\Users\jomadlcrz\Desktop\Saint-Andrew-Funeral-Home`  
 Shared Firebase Project: `funeral-system-7ca06`  
 SMS/Email Microservice: `saint-andrew-backend/` (`http://localhost:3000` / Render)
 
@@ -10,11 +10,11 @@ SMS/Email Microservice: `saint-andrew-backend/` (`http://localhost:3000` / Rende
 
 ## 1. System Boundary & Infrastructure Architecture
 
-The objective of V2.0 is to modernize the frontends into **React.js (Admin Web)** and **React Native / Expo (Customer Mobile)** while connecting to the shared Firebase and modular backend microservice:
+The objective is to modernize the frontends into **React.js (Admin Web)** and **React Native / Expo (Customer Mobile)** while connecting to the shared Firebase and modular backend microservice:
 
 ```mermaid
 flowchart TD
-    subgraph Clients["Frontend Layer (V2.0)"]
+    subgraph Clients["Frontend Layer"]
         AdminWeb["Admin Web (React + Vite + Tailwind)"]
         UserApp["Customer App (React Native / Expo)"]
     end
