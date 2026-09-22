@@ -150,6 +150,7 @@ service cloud.firestore {
   | `role` | string | `'admin'` or `'user'` |
   | `status` | string | `'active'`, `'inactive'`, or `'suspended'` |
   | `address` | string | Residential / delivery address |
+  | `photoURL` | string | Profile picture download URL (Firebase Storage or base64 data URL fallback) |
   | `createdAt` | Timestamp | Account creation timestamp |
   | `updatedAt` | Timestamp | Last modified timestamp |
 
@@ -220,6 +221,7 @@ service cloud.firestore {
   | `userId` | string | Customer UID |
   | `userName` | string | Customer name |
   | `userEmail` | string | Customer email |
+  | `userPhoto` | string | Customer profile picture URL, denormalized from `users/{uid}` |
   | `lastMessage` | string | Preview of most recent chat message |
   | `lastMessageTime`| Timestamp | Timestamp of last message |
   | `unreadAdminCount`| number | Counter for staff notifications |
