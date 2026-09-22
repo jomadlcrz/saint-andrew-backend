@@ -24,14 +24,14 @@ const server = app.listen(config.port, () => {
     : '⚠️ Unconfigured';
 
   console.log('\n============================================================');
-  console.log(`🕊️  ST. ANDREW FUNERAL HOME - BACKEND MICROSERVICE`);
+  console.log(`🕊️  ST. ANDREW FUNERAL HOME`);
   console.log('============================================================');
   console.log(`🚀 Server listening on: http://localhost:${config.port}`);
   console.log(`📋 Operational Mode:   ${modeLabel}`);
   console.log(`📱 SMS Gateway:         ${smsLabel}`);
   console.log(`📧 Brevo Email:         ${brevoLabel}`);
-  console.log(`🌐 CORS Origins:        localhost:* + 127.0.0.1:*`);
-  console.log(`🩺 Health Endpoint:     http://localhost:${config.port}/`);
+  console.log(`🌐 Web Landing Page:   http://localhost:${config.port}/`);
+  console.log(`🩺 Health Endpoint:     http://localhost:${config.port}/health`);
   console.log(`🔍 Brevo Test:          http://localhost:${config.port}/test-brevo`);
   console.log('============================================================\n');
 
