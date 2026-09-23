@@ -50,7 +50,10 @@ async function sendPrePlanPaymentReminders() {
     const phone = normalizePhilippinePhone(data.representativeInfo?.phone || data.contactPhone || '');
     if (!isValidPhilippinePhone(phone)) continue;
 
-    const totalAmount = Number(data.totalAmount || 0);
+    // Fall back to `totalPrice` (the `transactions`-collection field name) for walk-in-mirrored
+    // pre_plans documents written before the mirror explicitly set `totalAmount` — mirrors
+    // getPrePlanTotalAmount() in admin-web/src/services/preplan.service.ts.
+    const totalAmount = Number(data.totalAmount ?? data.totalPrice ?? 0);
     const amountPaid = Number(data.amountPaid || 0);
     const remainingBalance = totalAmount - amountPaid;
 
