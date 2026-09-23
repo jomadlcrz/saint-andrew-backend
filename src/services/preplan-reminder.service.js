@@ -44,13 +44,23 @@ async function sendPrePlanPaymentReminders() {
   for (const doc of snapshot.docs) {
     const data = doc.data();
     const schedule = Array.isArray(data.paymentSchedule) ? data.paymentSchedule : [];
-    const phone = normalizePhilippinePhone(data.contactPhone || '');
+    // Prefer the Authorized Family Representative's phone (the living contact) once present;
+    // fall back to the legacy contactPhone field for documents written before representativeInfo
+    // was mandatory. See preplan.types.ts / plan Phase A1.
+    const phone = normalizePhilippinePhone(data.representativeInfo?.phone || data.contactPhone || '');
     if (!isValidPhilippinePhone(phone)) continue;
 
     const totalAmount = Number(data.totalAmount || 0);
     const amountPaid = Number(data.amountPaid || 0);
     const remainingBalance = totalAmount - amountPaid;
-    const isPreNeed = data.planKind === 'preNeed';
+
+    // paymentPlanKind distinguishes Pre-Need's Long-term Installment from At-Need's Short-term
+    // Payment (spec 3.5). Documents written before this field existed fall back to the older
+    // planKind/planType-based guess, matching getPrePlanPaymentPlanKind() in admin-web.
+    const paymentPlanKind =
+      data.paymentPlanKind ||
+      (data.planType === 'full' ? 'full' : data.planKind === 'atNeed' ? 'shortTerm' : 'longTermInstallment');
+    const installmentCadence = data.installmentCadence || 'monthly';
 
     let scheduleChanged = false;
 
@@ -75,9 +85,18 @@ async function sendPrePlanPaymentReminders() {
         day: 'numeric',
       });
 
-      const message = isPreNeed
-        ? `Saint Andrew Funeral Homes: Your monthly payment of ₱${amountDue.toFixed(2)} for your Pre-Need Plan is due on ${dueDateLabel}.`
-        : `Saint Andrew Funeral Homes: Your remaining balance is ₱${remainingBalance.toFixed(2)}. Full payment is required before interment.`;
+      let message;
+      if (paymentPlanKind === 'longTermInstallment') {
+        message = `Saint Andrew Funeral Homes: Your ${installmentCadence} payment of ₱${amountDue.toFixed(
+          2
+        )} for your Pre-Need Plan (installment #${period.periodIndex}) is due on ${dueDateLabel}.`;
+      } else if (paymentPlanKind === 'shortTerm') {
+        message = `Saint Andrew Funeral Homes: Installment #${period.periodIndex} of your short-term payment plan — ₱${amountDue.toFixed(
+          2
+        )} — is due on ${dueDateLabel}. Remaining balance: ₱${remainingBalance.toFixed(2)}.`;
+      } else {
+        message = `Saint Andrew Funeral Homes: Your remaining balance is ₱${remainingBalance.toFixed(2)}. Full payment is required before interment.`;
+      }
 
       try {
         const result = await semaphoreService.sendSms({ number: phone, message });
