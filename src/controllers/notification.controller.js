@@ -10,6 +10,18 @@ const MAX_TITLE = 80;
 const MAX_BODY = 240;
 const MAX_ROUTE = 120;
 
+// A single leading "/" (never "//" or "/\", which browsers and deep-link handlers treat as another host)
+// followed only by path/query characters, so a notification can never open an external link
+const IN_APP_ROUTE = /^\/(?![\/\\])[A-Za-z0-9\-._~()\/\[\]?=&%+:@!$'*,;]*$/;
+
+/**
+ * True for strings usable as a single Firestore document id.
+ * Rejects "/", ".", ".." and the reserved "__name__" form, which Firestore refuses with a 500.
+ */
+function isDocumentId(value) {
+  return Boolean(value) && !value.includes('/') && value !== '.' && value !== '..' && !/^__.*__$/.test(value);
+}
+
 /**
  * POST /notify-user
  * Body: { userId, type, title, body, route?, refId? }
@@ -23,22 +35,20 @@ async function notifyUserHandler(req, res, next) {
     const route = sanitizeString(req.body?.route, MAX_ROUTE);
     const refId = sanitizeString(req.body?.refId, 128);
 
-    // Firestore document ids cannot contain "/", and walk-in placeholders are never real accounts
-    if (!userId || userId.includes('/')) {
-      return res.status(400).json({ error: 'A valid userId is required.' });
+    if (!isDocumentId(userId)) {
+      return res.status(400).json({ success: false, error: 'A valid userId is required.' });
     }
     if (!NOTIFICATION_TYPES.includes(type)) {
-      return res.status(400).json({ error: `type must be one of: ${NOTIFICATION_TYPES.join(', ')}.` });
+      return res.status(400).json({ success: false, error: `type must be one of: ${NOTIFICATION_TYPES.join(', ')}.` });
     }
     if (!title || !body) {
-      return res.status(400).json({ error: 'title and body are required.' });
+      return res.status(400).json({ success: false, error: 'title and body are required.' });
     }
-    if (refId.includes('/')) {
-      return res.status(400).json({ error: 'refId must be a document id.' });
+    if (refId && !isDocumentId(refId)) {
+      return res.status(400).json({ success: false, error: 'refId must be a document id.' });
     }
-    // Only in-app paths, so a notification can never open an external link
-    if (route && !route.startsWith('/')) {
-      return res.status(400).json({ error: 'route must be an in-app path starting with "/".' });
+    if (route && !IN_APP_ROUTE.test(route)) {
+      return res.status(400).json({ success: false, error: 'route must be an in-app path starting with "/".' });
     }
 
     const result = await notifyUser({ userId, type, title, body, route, refId });
