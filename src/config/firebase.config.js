@@ -16,35 +16,36 @@ try {
   const admin = require('firebase-admin');
   let serviceAccountCredentials = null;
 
-  // 1. Check FIREBASE_SERVICE_ACCOUNT_JSON environment variable
-  if (
-    config.firebase.serviceAccountJson &&
-    config.firebase.serviceAccountJson !== 'undefined' &&
-    config.firebase.serviceAccountJson !== 'null'
-  ) {
-    try {
-      serviceAccountCredentials = JSON.parse(config.firebase.serviceAccountJson);
-    } catch (parseErr) {
-      console.warn('⚠️ [Firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', parseErr.message);
+  // 1. Check local service-account JSON file first (ensures local development
+  // always uses the repository's active service account, preventing stale shell environment variables from hijacking the project)
+  const candidatePaths = [
+    path.resolve(__dirname, '../../service-account.json'),
+  ];
+
+  for (const filePath of candidatePaths) {
+    if (fs.existsSync(filePath)) {
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8');
+        serviceAccountCredentials = JSON.parse(raw);
+        console.log(`🔑 [Firebase] Loaded credentials from local file: ${path.basename(filePath)}`);
+        break;
+      } catch (fileErr) {
+        console.warn(`⚠️ [Firebase] Error reading credentials from ${filePath}:`, fileErr.message);
+      }
     }
   }
 
-  // 2. If not provided via env, attempt to locate local service-account JSON file
+  // 2. If not found locally, check FIREBASE_SERVICE_ACCOUNT_JSON (e.g. production deployments on Render / Cloud Run)
   if (!serviceAccountCredentials) {
-    const candidatePaths = [
-      path.resolve(__dirname, '../../service-account.json'),
-    ];
-
-    for (const filePath of candidatePaths) {
-      if (fs.existsSync(filePath)) {
-        try {
-          const raw = fs.readFileSync(filePath, 'utf8');
-          serviceAccountCredentials = JSON.parse(raw);
-          console.log(`🔑 [Firebase] Loaded credentials from local file: ${path.basename(filePath)}`);
-          break;
-        } catch (fileErr) {
-          console.warn(`⚠️ [Firebase] Error reading credentials from ${filePath}:`, fileErr.message);
-        }
+    if (
+      config.firebase.serviceAccountJson &&
+      config.firebase.serviceAccountJson !== 'undefined' &&
+      config.firebase.serviceAccountJson !== 'null'
+    ) {
+      try {
+        serviceAccountCredentials = JSON.parse(config.firebase.serviceAccountJson);
+      } catch (parseErr) {
+        console.warn('⚠️ [Firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', parseErr.message);
       }
     }
   }
