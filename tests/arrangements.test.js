@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createAccountLookup } = require('../src/services/account-lookup.service');
 const { createArrangementService, NOT_FOUND_MESSAGE } = require('../src/services/arrangement.service');
+const { planOwnerBackfill, applyOwnerBackfill } = require('../scripts/backfill-owner-ids');
 
 /** Minimal in-memory Firestore: equality / `in` queries, doc get, batched updates. */
 function createFakeFirestore(seed) {
@@ -219,4 +220,57 @@ test('refuses to claim with a phone that is not on the record', async () => {
     { status: 404 }
   );
   assert.equal(firestore.writes.length, 0);
+});
+
+// ── Owner backfill script ─────────────────────────────────────────────────────
+
+function backfillFixture() {
+  return createFakeFirestore({
+    users: {
+      fam1: { email: 'maria@example.com', role: 'user' },
+      dupA: { email: 'shared@example.com', role: 'user' },
+      dupB: { email: 'Shared@example.com', role: 'user' },
+      staff: { email: 'desk@example.com', role: 'admin' },
+    },
+    transactions: {
+      ownedMirror: { referenceCode: 'PN-1', userId: 'fam9' },
+      webClient: { referenceCode: 'SA-2', userId: 'web-client', clientEmail: 'MARIA@example.com' },
+      walkIn: { referenceCode: 'SA-3', userId: 'walk-in', clientEmail: 'maria@example.com' },
+      ambiguous: { referenceCode: 'SA-4', userId: 'web-client', clientEmail: 'shared@example.com' },
+      staffEmail: { referenceCode: 'SA-5', userId: 'web-client', clientEmail: 'desk@example.com' },
+      alreadyOwned: { referenceCode: 'SA-6', userId: 'fam1' },
+    },
+    pre_plans: {
+      noOwnerMirrored: { referenceNumber: 'PN-1', contactEmail: 'nobody@example.com' },
+      noOwnerByEmail: { referenceNumber: 'PN-7', contactEmail: 'maria@example.com' },
+    },
+  });
+}
+
+test('backfill takes the owner from the mirror document, then from a unique customer email', async () => {
+  const { updates, unresolved } = await planOwnerBackfill({ db: backfillFixture() });
+  const byPath = Object.fromEntries(updates.map((u) => [`${u.collection}/${u.id}`, u]));
+
+  assert.equal(byPath['pre_plans/noOwnerMirrored'].userId, 'fam9');
+  assert.equal(byPath['pre_plans/noOwnerMirrored'].reason, 'mirror owner');
+  assert.equal(byPath['transactions/webClient'].userId, 'fam1');
+  assert.equal(byPath['pre_plans/noOwnerByEmail'].userId, 'fam1');
+
+  // Never: staff walk-ins, records that already have an owner, shared or staff emails
+  for (const path of ['transactions/walkIn', 'transactions/alreadyOwned', 'transactions/ambiguous', 'transactions/staffEmail']) {
+    assert.equal(path in byPath, false, `${path} must not be updated`);
+  }
+  assert.deepEqual(
+    unresolved.map((u) => `${u.collection}/${u.id}:${u.reason}`).sort(),
+    ['transactions/ambiguous:email shared by several accounts', 'transactions/staffEmail:no owner found']
+  );
+});
+
+test('backfill apply writes only the planned owners', async () => {
+  const firestore = backfillFixture();
+  const { updates } = await planOwnerBackfill({ db: firestore });
+  await applyOwnerBackfill({ db: firestore, updates, serverTimestamp: () => SERVER_TS });
+  assert.equal(firestore.read('transactions', 'webClient').userId, 'fam1');
+  assert.equal(firestore.read('transactions', 'walkIn').userId, 'walk-in');
+  assert.equal(firestore.writes.length, updates.length);
 });
