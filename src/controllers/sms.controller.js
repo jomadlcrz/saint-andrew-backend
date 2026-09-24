@@ -4,6 +4,7 @@
  */
 
 const { normalizePhilippinePhone, isValidPhilippinePhone } = require('../utils/phone.util');
+const { sanitizeNumeric } = require('../utils/sanitize.util');
 const { formatBalanceReminderSms } = require('../templates/sms.templates');
 const semaphoreService = require('../services/semaphore.service');
 const { admin, db, isFirebaseInitialized } = require('../config/firebase.config');
@@ -18,7 +19,7 @@ async function sendBalanceSms(req, res, next) {
     const phone = normalizePhilippinePhone(rawPhone);
     const clientName = req.body?.clientName;
     const deceasedName = req.body?.deceasedName;
-    const balance = req.body?.balance;
+    const rawBalance = req.body?.balance;
     const dueDate = req.body?.dueDate;
     const transactionId = req.body?.transactionId ? String(req.body.transactionId) : null;
 
@@ -29,7 +30,18 @@ async function sendBalanceSms(req, res, next) {
       });
     }
 
-    // 2. Prepare message content
+    // 2. Balance validation (strictly numeric to prevent characters)
+    let balance = rawBalance;
+    if (rawBalance !== undefined && rawBalance !== null && rawBalance !== '') {
+      if (typeof rawBalance === 'string' && /[^\d.]/.test(rawBalance.trim())) {
+        return res.status(400).json({
+          error: 'Balance must be a valid numeric amount without letters or special characters.',
+        });
+      }
+      balance = sanitizeNumeric(rawBalance, 0);
+    }
+
+    // 3. Prepare message content
     const message = formatBalanceReminderSms({
       clientName,
       deceasedName,
@@ -50,13 +62,13 @@ async function sendBalanceSms(req, res, next) {
       });
     }
 
-    // 3. Dispatch SMS via service
+    // 4. Dispatch SMS via service
     const smsResult = await semaphoreService.sendSms({
       number: phone,
       message: message,
     });
 
-    // 4. Update Firestore transaction document if transactionId was provided
+    // 5. Update Firestore transaction document if transactionId was provided
     if (isFirebaseInitialized && db && admin && transactionId) {
       try {
         await db.collection('transactions').doc(transactionId).update({
@@ -69,7 +81,7 @@ async function sendBalanceSms(req, res, next) {
       }
     }
 
-    // 5. Respond with identical contract as original endpoint
+    // 6. Respond with identical contract as original endpoint
     return res.status(200).json({
       success: true,
       messageId: smsResult.messageId,

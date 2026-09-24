@@ -35,7 +35,33 @@ function sanitizeString(value, maxLength) {
   return str;
 }
 
+/**
+ * Strips all non-digit characters, guaranteeing pure integer digits.
+ * @param {any} value
+ * @returns {string}
+ */
+function sanitizeDigitsOnly(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+/**
+ * Parses and sanitizes a numeric value, preventing characters or NaN from entering the database.
+ * @param {any} value
+ * @param {number} [defaultValue=0]
+ * @returns {number}
+ */
+function sanitizeNumeric(value, defaultValue = 0) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : defaultValue;
+  }
+  const cleaned = String(value || '').replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
 module.exports = {
   escapeHtml,
   sanitizeString,
+  sanitizeDigitsOnly,
+  sanitizeNumeric,
 };
