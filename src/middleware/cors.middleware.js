@@ -42,6 +42,9 @@ const corsOptions = {
     'X-Requested-With',
     'Accept',
     'Origin',
+    // Sent by admin-web on /send-balance-sms (read by sms.controller for deduplication)
+    'X-Idempotency-Key',
+    'Idempotency-Key',
   ],
   credentials: true,
   optionsSuccessStatus: 200,
