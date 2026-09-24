@@ -73,8 +73,29 @@ const notifyLimiter = rateLimit({
   handler: jsonRateLimitHandler('Too many notification requests. Please try again shortly.'),
 });
 
+// Phone → account lookups reveal whether a number is registered (and, for login, its email),
+// so keep them tight enough that enumerating numbers isn't practical.
+const phoneLookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many lookup attempts. Please try again in 15 minutes.'),
+});
+
+// Reference code + phone checks for tracking or claiming an arrangement
+const arrangementLookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many arrangement lookups. Please try again in 15 minutes.'),
+});
+
 module.exports = {
+  arrangementLookupLimiter,
   notifyLimiter,
+  phoneLookupLimiter,
   otpRequestLimiter,
   otpVerifyLimiter,
   resetLinkLimiter,

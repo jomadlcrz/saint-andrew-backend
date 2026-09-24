@@ -13,7 +13,8 @@
     "test": "node tests/smoke.test.js",
     "test:security": "node tests/security.smoke.test.js",
     "test:notifications": "node --test tests/notifications.test.js",
-    "test:idempotency": "node tests/idempotency.test.js"
+    "test:idempotency": "node tests/idempotency.test.js",
+    "test:arrangements": "node --test tests/arrangements.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

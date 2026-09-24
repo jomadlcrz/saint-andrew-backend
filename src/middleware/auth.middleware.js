@@ -56,6 +56,19 @@ async function verifyFirebaseAuth(req, res, next) {
 }
 
 /**
+ * Like verifyFirebaseAuth, but lets anonymous callers through with req.user unset.
+ * A Bearer token that is present but invalid is still rejected, so a signed-in client
+ * never silently falls back to anonymous behavior.
+ */
+async function optionalFirebaseAuth(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+  return verifyFirebaseAuth(req, res, next);
+}
+
+/**
  * Requires the authenticated caller to be an active admin/staff account.
  * Must run after verifyFirebaseAuth. Looks up role/status from Firestore
  * `/users/{uid}` — the same authorization model documented in AGENTS.md
@@ -93,6 +106,7 @@ async function requireAdminRole(req, res, next) {
 }
 
 module.exports = {
+  optionalFirebaseAuth,
   verifyFirebaseAuth,
   requireAdminRole,
 };
