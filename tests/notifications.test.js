@@ -179,3 +179,95 @@ test('removes unregistered devices and survives push failures', async () => {
   console.warn = warn;
   assert.deepEqual(failed, { saved: true, pushed: 0, reason: 'push-failed' });
 });
+
+const { formatPaymentReminder } = require('../src/templates/sms.templates');
+const { applyReminderResult, pendingReminderChannels } = require('../src/services/preplan-reminder.service');
+const { notifyUserHandler } = require('../src/controllers/notification.controller');
+
+test('payment reminder push text follows the plan kind, like the SMS', () => {
+  const base = { periodIndex: 2, amountDue: 1500, remainingBalance: 9000, dueDateLabel: 'October 1, 2026' };
+
+  const preNeed = formatPaymentReminder({ ...base, paymentPlanKind: 'longTermInstallment' });
+  assert.equal(preNeed.title, 'Pre-Need payment reminder');
+  assert.equal(preNeed.body, 'Installment #2 of ₱1500.00 is due on October 1, 2026.');
+
+  const shortTerm = formatPaymentReminder({ ...base, paymentPlanKind: 'shortTerm' });
+  assert.equal(shortTerm.title, 'Payment reminder');
+  assert.doesNotMatch(shortTerm.title + shortTerm.body, /Pre-Need/);
+  assert.match(shortTerm.body, /Remaining balance: ₱9000\.00/);
+
+  const full = formatPaymentReminder({ ...base, periodIndex: undefined, paymentPlanKind: 'full' });
+  assert.equal(full.title, 'Balance reminder');
+  assert.equal(full.body, 'Your remaining balance is ₱9000.00. Full payment is required before interment.');
+
+  for (const reminder of [preNeed, shortTerm, full]) {
+    assert.doesNotMatch(reminder.sms + reminder.title + reminder.body, /undefined|NaN/);
+  }
+});
+
+test('a failed SMS is retried without re-sending the in-app notification', () => {
+  const channels = { canSms: true, userId: 'u1' };
+  let period = { periodIndex: 1, status: 'Pending' };
+
+  // Day 1: SMS fails, notification saved
+  assert.deepEqual(pendingReminderChannels(period, channels), { needsSms: true, needsNotification: true });
+  period = applyReminderResult(period, { ...channels, smsSent: false, notificationDone: true, now: 'D1' });
+  assert.equal(period.notificationReminderSentAt, 'D1');
+  assert.equal(period.reminderSentAt, undefined);
+
+  // Day 2: only the SMS is still pending; once it goes out the period is done
+  assert.deepEqual(pendingReminderChannels(period, channels), { needsSms: true, needsNotification: false });
+  period = applyReminderResult(period, { ...channels, smsSent: true, notificationDone: false, now: 'D2' });
+  assert.equal(period.smsReminderSentAt, 'D2');
+  assert.equal(period.reminderSentAt, 'D2');
+});
+
+test('an SMS-only plan is done as soon as the SMS goes out', () => {
+  const period = applyReminderResult({}, { canSms: true, userId: '', smsSent: true, notificationDone: false, now: 'D1' });
+  assert.equal(period.reminderSentAt, 'D1');
+});
+
+async function callNotifyUser(body) {
+  const res = {
+    statusCode: 200,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.body = payload;
+      return this;
+    },
+  };
+  await notifyUserHandler({ body }, res, (err) => assert.fail(err));
+  return res;
+}
+
+test('/notify-user rejects external routes', async () => {
+  const valid = { userId: 'u1', type: 'payment', title: 't', body: 'b' };
+  for (const route of ['//evil.example', '/\\evil.example', 'https://evil.example', '/ path', '/a\nb']) {
+    const res = await callNotifyUser({ ...valid, route });
+    assert.equal(res.statusCode, 400, `route ${JSON.stringify(route)} should be rejected`);
+    assert.equal(res.body.success, false);
+  }
+});
+
+test('/notify-user rejects ids Firestore cannot use', async () => {
+  const valid = { userId: 'u1', type: 'payment', title: 't', body: 'b' };
+  for (const userId of ['', '.', '..', '__id__', 'a/b']) {
+    const res = await callNotifyUser({ ...valid, userId });
+    assert.equal(res.statusCode, 400, `userId ${JSON.stringify(userId)} should be rejected`);
+    assert.deepEqual(Object.keys(res.body).sort(), ['error', 'success']);
+    assert.equal(res.body.success, false);
+  }
+  const badRef = await callNotifyUser({ ...valid, refId: '..' });
+  assert.equal(badRef.statusCode, 400);
+});
+
+test('/notify-user accepts in-app routes', async () => {
+  const valid = { userId: 'u1', type: 'payment', title: 't', body: 'b' };
+  for (const route of ['/(app)/arrangements', '/(app)/chat/abc-123?tab=history']) {
+    const res = await callNotifyUser({ ...valid, route });
+    assert.equal(res.statusCode, 200, `route ${JSON.stringify(route)} should be accepted`);
+  }
+});

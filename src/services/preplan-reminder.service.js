@@ -10,9 +10,34 @@ const cron = require('node-cron');
 const { admin, db, isFirebaseInitialized } = require('../config/firebase.config');
 const semaphoreService = require('./semaphore.service');
 const { notifyUser } = require('./notification.service');
+const { formatPaymentReminder } = require('../templates/sms.templates');
 const { normalizePhilippinePhone, isValidPhilippinePhone } = require('../utils/phone.util');
 
 const REMINDER_WINDOW_DAYS = 3;
+
+/**
+ * Which reminder channels still need to go out for a schedule period.
+ * SMS applies when the plan has a valid phone, the in-app notification when it has a userId.
+ */
+function pendingReminderChannels(period, { canSms, userId }) {
+  return {
+    needsSms: Boolean(canSms) && !period.smsReminderSentAt,
+    needsNotification: Boolean(userId) && !period.notificationReminderSentAt,
+  };
+}
+
+/**
+ * Stamps the channels that just succeeded on the period. `reminderSentAt` is set only once
+ * every applicable channel has succeeded, so the sweep stops reminding for this period.
+ */
+function applyReminderResult(period, { canSms, userId, smsSent, notificationDone, now }) {
+  const next = { ...period };
+  if (smsSent) next.smsReminderSentAt = now;
+  if (notificationDone) next.notificationReminderSentAt = now;
+  const { needsSms, needsNotification } = pendingReminderChannels(next, { canSms, userId });
+  if (!needsSms && !needsNotification) next.reminderSentAt = now;
+  return next;
+}
 
 /**
  * Sweep pre_plans collection and send SMS reminders for upcoming due dates.
@@ -75,7 +100,7 @@ async function sendPrePlanPaymentReminders() {
     for (let i = 0; i < schedule.length; i++) {
       const period = schedule[i];
       if (!period || period.status === 'Paid') continue;
-      if (period.reminderSentAt) continue; // Already reminded once for this period
+      if (period.reminderSentAt) continue; // Every channel already reminded for this period
 
       let dueDate = null;
       if (period.dueDate && typeof period.dueDate.toDate === 'function') {
@@ -93,23 +118,23 @@ async function sendPrePlanPaymentReminders() {
         day: 'numeric',
       });
 
-      let message;
-      if (paymentPlanKind === 'longTermInstallment') {
-        message = `Saint Andrew Funeral Homes: Your ${installmentCadence} payment of ₱${amountDue.toFixed(
-          2
-        )} for your Pre-Need Plan (installment #${period.periodIndex}) is due on ${dueDateLabel}.`;
-      } else if (paymentPlanKind === 'shortTerm') {
-        message = `Saint Andrew Funeral Homes: Installment #${period.periodIndex} of your short-term payment plan — ₱${amountDue.toFixed(
-          2
-        )} — is due on ${dueDateLabel}. Remaining balance: ₱${remainingBalance.toFixed(2)}.`;
-      } else {
-        message = `Saint Andrew Funeral Homes: Your remaining balance is ₱${remainingBalance.toFixed(2)}. Full payment is required before interment.`;
-      }
+      const reminder = formatPaymentReminder({
+        paymentPlanKind,
+        installmentCadence,
+        periodIndex: period.periodIndex,
+        amountDue,
+        remainingBalance,
+        dueDateLabel,
+      });
+
+      // Each channel is stamped on its own success, so a failed SMS is retried on the next sweep
+      // without sending the in-app notification again
+      const { needsSms, needsNotification } = pendingReminderChannels(period, { canSms, userId });
 
       let smsSent = false;
-      if (canSms) {
+      if (needsSms) {
         try {
-          const result = await semaphoreService.sendSms({ number: phone, message });
+          const result = await semaphoreService.sendSms({ number: phone, message: reminder.sms });
           const messageId = result?.messageId || 'n/a';
           smsSent = true;
 
@@ -118,7 +143,7 @@ async function sendPrePlanPaymentReminders() {
             adminUid: 'system',
             adminEmail: 'saint_andrew_backend (scheduled)',
             action: 'SMS Sent',
-            description: `${message} (Message ID: ${messageId})`,
+            description: `${reminder.sms} (Message ID: ${messageId})`,
           });
         } catch (error) {
           console.warn(`⚠️ [PrePlan Reminder] SMS failed for plan ${doc.id}:`, error.message);
@@ -136,26 +161,32 @@ async function sendPrePlanPaymentReminders() {
         }
       }
 
-      let notificationSaved = false;
-      if (userId) {
+      let notificationDone = false;
+      if (needsNotification) {
         try {
           const result = await notifyUser({
             userId,
             type: 'payment_reminder',
-            title: 'Pre-Need payment reminder',
-            body: `Installment #${period.periodIndex} of ₱${amountDue.toFixed(2)} is due on ${dueDateLabel}.`,
+            title: reminder.title,
+            body: reminder.body,
             route: '/(app)/arrangements',
             refId: doc.id,
           });
-          notificationSaved = result.saved;
+          // A userId with no account can never be notified, so don't retry it every day
+          notificationDone = result.saved || result.reason === 'user-not-found';
         } catch (error) {
           console.warn(`⚠️ [PrePlan Reminder] Push failed for plan ${doc.id}:`, error.message);
         }
       }
 
-      // Reminded once by either channel: never send this period again tomorrow
-      if (smsSent || notificationSaved) {
-        schedule[i] = { ...period, reminderSentAt: admin.firestore.Timestamp.now() };
+      if (smsSent || notificationDone) {
+        schedule[i] = applyReminderResult(period, {
+          canSms,
+          userId,
+          smsSent,
+          notificationDone,
+          now: admin.firestore.Timestamp.now(),
+        });
         scheduleChanged = true;
         remindersSent += 1;
       }
@@ -192,4 +223,6 @@ function initializeReminderCron() {
 module.exports = {
   sendPrePlanPaymentReminders,
   initializeReminderCron,
+  pendingReminderChannels,
+  applyReminderResult,
 };
