@@ -3,7 +3,7 @@
 Scope: St. Andrew Funeral Home Modernization  
 Source Project: `C:\Users\jomadlcrz\Desktop\Saint-Andrew-Funeral-Home`  
 Target Project: `C:\Users\jomadlcrz\Desktop\Saint-Andrew-Funeral-Home`  
-Shared Firebase Project: `funeral-system-7ca06`  
+Shared Firebase Project: `saint-andrew-funeral-home`  
 SMS/Email Microservice: `saint-andrew-backend/` (`http://localhost:3000` / Render)
 
 ---
@@ -19,7 +19,7 @@ flowchart TD
         UserApp["Customer App (React Native / Expo)"]
     end
 
-    subgraph FirebaseBackend["Firebase (funeral-system-7ca06)"]
+    subgraph FirebaseBackend["Firebase (saint-andrew-funeral-home)"]
         Auth["Firebase Authentication"]
         Firestore[("Cloud Firestore")]
         Storage["Firebase Storage"]
@@ -54,13 +54,13 @@ flowchart TD
 ### 2.1 Web & Mobile Client Configuration
 ```typescript
 export const firebaseConfig = {
-  apiKey: "AIzaSyAWfbciuk6Cs7GhF4wJxqSOeU1rqk7ev8U",
-  authDomain: "funeral-system-7ca06.firebaseapp.com",
-  projectId: "funeral-system-7ca06",
-  storageBucket: "funeral-system-7ca06.firebasestorage.app",
-  messagingSenderId: "666921949289",
-  appId: "1:666921949289:web:22ff5d81eac4c102fc2af8",
-  measurementId: "G-S9XY4JVW3E"
+  apiKey: "your_api_key_here",
+  authDomain: "saint-andrew-funeral-home.firebaseapp.com",
+  projectId: "saint-andrew-funeral-home",
+  storageBucket: "saint-andrew-funeral-home.firebasestorage.app",
+  messagingSenderId: "your_messaging_sender_id",
+  appId: "your_web_app_id",
+  measurementId: "your_measurement_id"
 };
 ```
 

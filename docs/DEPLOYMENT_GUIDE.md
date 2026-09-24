@@ -14,7 +14,7 @@ flowchart TD
         Render["Render Web Service\n(SMS, Email, OTP API)"]
         Vercel["Vercel or Firebase Hosting\n(Admin Web Console)"]
         EAS["Expo EAS Build\n(Android APK / iOS)"]
-        Firestore["Cloud Firestore Rules\n(funeral-system-7ca06)"]
+        Firestore["Cloud Firestore Rules\n(saint-andrew-funeral-home)"]
     end
 
     R1 -->|"Git push (render.yaml)"| Render
@@ -68,13 +68,13 @@ The backend microservice handles Semaphore SMS, Brevo transactional emails, and 
 
 #### Required Environment Variables in Vercel:
 ```env
-VITE_FIREBASE_API_KEY=AIzaSyAWfbciuk6Cs7GhF4wJxqSOeU1rqk7ev8U
-VITE_FIREBASE_AUTH_DOMAIN=funeral-system-7ca06.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=funeral-system-7ca06
-VITE_FIREBASE_STORAGE_BUCKET=funeral-system-7ca06.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=666921949289
-VITE_FIREBASE_APP_ID=1:666921949289:web:22ff5d81eac4c102fc2af8
-VITE_FIREBASE_MEASUREMENT_ID=G-S9XY4JVW3E
+VITE_FIREBASE_API_KEY=your_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=saint-andrew-funeral-home.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=saint-andrew-funeral-home
+VITE_FIREBASE_STORAGE_BUCKET=saint-andrew-funeral-home.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_web_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 VITE_SMS_BACKEND_URL=https://your-backend-app.onrender.com
 ```
 
