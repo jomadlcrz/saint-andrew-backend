@@ -48,6 +48,9 @@ function createNotifier({ db: firestore, FieldValue, sendPush }) {
     });
 
     const user = userSnap.data() || {};
+    if (user.status === 'inactive' || user.status === 'suspended') {
+      return { saved: true, pushed: 0, reason: `user-${user.status}` };
+    }
     const tokens = Array.isArray(user.pushTokens) ? user.pushTokens : [];
     if (user.pushEnabled === false || tokens.length === 0) {
       return { saved: true, pushed: 0, reason: user.pushEnabled === false ? 'push-disabled' : 'no-devices' };
