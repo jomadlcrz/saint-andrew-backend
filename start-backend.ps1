@@ -17,6 +17,16 @@ if (-not [string]::IsNullOrWhiteSpace($userBrevoKey)) {
   Remove-Item Env:BREVO_API_KEY -ErrorAction SilentlyContinue
 }
 
+# Terminals keep environment variables from when they were opened, so a stale Firebase
+# credential (e.g. the old project's) would silently override service-account.json.
+# Re-read it from the user environment on every start, like the keys above.
+$userFirebaseCredential = [Environment]::GetEnvironmentVariable('FIREBASE_SERVICE_ACCOUNT_JSON', 'User')
+if (-not [string]::IsNullOrWhiteSpace($userFirebaseCredential)) {
+  $env:FIREBASE_SERVICE_ACCOUNT_JSON = $userFirebaseCredential
+} else {
+  Remove-Item Env:FIREBASE_SERVICE_ACCOUNT_JSON -ErrorAction SilentlyContinue
+}
+
 Set-Location $backendDirectory
 
 $nodePath = (Get-Command node.exe -ErrorAction SilentlyContinue).Source

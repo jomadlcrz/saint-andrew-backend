@@ -64,7 +64,17 @@ const smsLimiter = rateLimit({
   handler: jsonRateLimitHandler('Too many SMS requests. Please try again later.'),
 });
 
+// Admin → family notifications: one per admin action, generous for busy days
+const notifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many notification requests. Please try again shortly.'),
+});
+
 module.exports = {
+  notifyLimiter,
   otpRequestLimiter,
   otpVerifyLimiter,
   resetLinkLimiter,

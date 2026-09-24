@@ -9,6 +9,7 @@
 const cron = require('node-cron');
 const { admin, db, isFirebaseInitialized } = require('../config/firebase.config');
 const semaphoreService = require('./semaphore.service');
+const { notifyUser } = require('./notification.service');
 const { normalizePhilippinePhone, isValidPhilippinePhone } = require('../utils/phone.util');
 
 const REMINDER_WINDOW_DAYS = 3;
@@ -48,7 +49,11 @@ async function sendPrePlanPaymentReminders() {
     // fall back to the legacy contactPhone field for documents written before representativeInfo
     // was mandatory. See preplan.types.ts / plan Phase A1.
     const phone = normalizePhilippinePhone(data.representativeInfo?.phone || data.contactPhone || '');
-    if (!isValidPhilippinePhone(phone)) continue;
+    const canSms = isValidPhilippinePhone(phone);
+    // Plans submitted from the mobile app carry the family's account, so they also get a push.
+    // Web/admin-created plans have no userId and stay SMS-only.
+    const userId = typeof data.userId === 'string' ? data.userId : '';
+    if (!canSms && !userId) continue;
 
     // Fall back to `totalPrice` (the `transactions`-collection field name) for walk-in-mirrored
     // pre_plans documents written before the mirror explicitly set `totalAmount` — mirrors
@@ -101,34 +106,58 @@ async function sendPrePlanPaymentReminders() {
         message = `Saint Andrew Funeral Homes: Your remaining balance is ₱${remainingBalance.toFixed(2)}. Full payment is required before interment.`;
       }
 
-      try {
-        const result = await semaphoreService.sendSms({ number: phone, message });
-        const messageId = result?.messageId || 'n/a';
-
-        schedule[i] = { ...period, reminderSentAt: admin.firestore.Timestamp.now() };
-        scheduleChanged = true;
-        remindersSent += 1;
-
-        await doc.ref.collection('logs').add({
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          adminUid: 'system',
-          adminEmail: 'saint_andrew_backend (scheduled)',
-          action: 'SMS Sent',
-          description: `${message} (Message ID: ${messageId})`,
-        });
-      } catch (error) {
-        console.warn(`⚠️ [PrePlan Reminder] SMS failed for plan ${doc.id}:`, error.message);
+      let smsSent = false;
+      if (canSms) {
         try {
+          const result = await semaphoreService.sendSms({ number: phone, message });
+          const messageId = result?.messageId || 'n/a';
+          smsSent = true;
+
           await doc.ref.collection('logs').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             adminUid: 'system',
             adminEmail: 'saint_andrew_backend (scheduled)',
-            action: 'SMS Failed',
-            description: error.message,
+            action: 'SMS Sent',
+            description: `${message} (Message ID: ${messageId})`,
           });
-        } catch (logErr) {
-          // Ignore secondary log failures
+        } catch (error) {
+          console.warn(`⚠️ [PrePlan Reminder] SMS failed for plan ${doc.id}:`, error.message);
+          try {
+            await doc.ref.collection('logs').add({
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              adminUid: 'system',
+              adminEmail: 'saint_andrew_backend (scheduled)',
+              action: 'SMS Failed',
+              description: error.message,
+            });
+          } catch (logErr) {
+            // Ignore secondary log failures
+          }
         }
+      }
+
+      let notificationSaved = false;
+      if (userId) {
+        try {
+          const result = await notifyUser({
+            userId,
+            type: 'payment_reminder',
+            title: 'Pre-Need payment reminder',
+            body: `Installment #${period.periodIndex} of ₱${amountDue.toFixed(2)} is due on ${dueDateLabel}.`,
+            route: '/(app)/arrangements',
+            refId: doc.id,
+          });
+          notificationSaved = result.saved;
+        } catch (error) {
+          console.warn(`⚠️ [PrePlan Reminder] Push failed for plan ${doc.id}:`, error.message);
+        }
+      }
+
+      // Reminded once by either channel: never send this period again tomorrow
+      if (smsSent || notificationSaved) {
+        schedule[i] = { ...period, reminderSentAt: admin.firestore.Timestamp.now() };
+        scheduleChanged = true;
+        remindersSent += 1;
       }
 
       // Only remind for the earliest qualifying unpaid period per sweep

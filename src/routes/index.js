@@ -10,11 +10,13 @@ const healthRoutes = require('./health.routes');
 const smsRoutes = require('./sms.routes');
 const emailRoutes = require('./email.routes');
 const authRoutes = require('./auth.routes');
+const notificationRoutes = require('./notification.routes');
 
 // Mount routes
 router.use('/', healthRoutes);
 router.use('/', smsRoutes);
 router.use('/', emailRoutes);
 router.use('/', authRoutes);
+router.use('/', notificationRoutes);
 
 module.exports = router;

@@ -33,7 +33,6 @@ try {
   if (!serviceAccountCredentials) {
     const candidatePaths = [
       path.resolve(__dirname, '../../service-account.json'),
-      path.resolve(__dirname, '../../funeral-system-7ca06-firebase-adminsdk-fbsvc-a3c3a71d82.json'),
     ];
 
     for (const filePath of candidatePaths) {
@@ -60,7 +59,11 @@ try {
     authInstance = admin.auth();
     isInitialized = true;
 
-    console.log('✅ [Firebase] Admin SDK initialized successfully (Firestore & Auth active)');
+    // Shown so a credential for the wrong Firebase project is obvious at startup: login tokens
+    // from the apps are only accepted when this matches their project (saint-andrew-funeral-home).
+    console.log(
+      `✅ [Firebase] Admin SDK initialized successfully (Firestore & Auth active) — project: ${serviceAccountCredentials.project_id || 'unknown'}`
+    );
   } else if (process.env.FUNCTION_TARGET || process.env.K_SERVICE || process.env.FUNCTIONS_EMULATOR) {
     // Running inside Firebase Cloud Functions / Cloud Run in the same
     // project — Application Default Credentials are available for free,
