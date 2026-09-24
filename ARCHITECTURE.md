@@ -3,7 +3,7 @@
 **Service Name:** `saint-andrew-backend`  
 **Runtime:** Node.js (v18+) / Express  
 **Deployment Target:** Render Web Service (via `render.yaml`)  
-**Shared Infrastructure:** Firebase Project `funeral-system-7ca06` (Admin SDK)
+**Shared Infrastructure:** Firebase Project `saint-andrew-funeral-home` (Admin SDK)
 
 ---
 
