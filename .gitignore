@@ -4,7 +4,6 @@ node_modules/
 !.env.example
 *.json.secret
 service-account.json
-funeral-system-*.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
