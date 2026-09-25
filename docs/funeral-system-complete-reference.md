@@ -327,7 +327,7 @@ Base URL: `http://localhost:3000` (Local) / `https://<service-name>.onrender.com
 | **Catalog & Packages**| `(tabs)/catalog` | Browse caskets, urns, complete packages, and floral arrangements |
 | **Arrangement Wizard** | `booking/wizard` | Step-by-step funeral plan builder (casket, service, dates, details) |
 | **My Arrangements** | `(tabs)/orders` | Active and past service contracts, payment status, remaining balance |
-| **Payment Upload** | `orders/upload-proof` | Upload receipt / bank transfer screenshot to Firebase Storage |
+| **Payment Upload** | `orders/upload-proof` | Upload GCash receipt screenshot to Firebase Storage (cash is recorded by the office) |
 | **Support Chat** | `(tabs)/chat` | Direct messaging with funeral home staff |
 | **Notifications** | `notifications` | Status updates, balance reminders, schedule confirmations |
 | **Profile** | `(tabs)/profile` | Contact info, password management, help & FAQ |
