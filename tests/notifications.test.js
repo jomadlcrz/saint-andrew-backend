@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   ANDROID_CHANNEL_ID,
+  NOTIFICATION_SOUND,
   buildExpoMessages,
   isExpoPushToken,
   parseExpoTickets,
@@ -44,7 +45,7 @@ test('builds one message per valid token with route data and the app channel', (
     to: TOKEN_A,
     title: 'Arrangement approved',
     body: 'Your arrangement was approved.',
-    sound: 'default',
+    sound: NOTIFICATION_SOUND,
     channelId: ANDROID_CHANNEL_ID,
     priority: 'high',
     data: { route: '/(app)/arrangements', type: 'booking_status', notificationId: 'n1' },

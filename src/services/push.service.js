@@ -6,8 +6,10 @@
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-// Must match the Android channel the mobile app creates (src/services/notifications.service.ts)
-const ANDROID_CHANNEL_ID = 'st-andrew-updates';
+// Must match the Android channel the mobile app creates (src/services/notifications.service.ts).
+// The channel carries the chime on Android; NOTIFICATION_SOUND is what iOS plays.
+const ANDROID_CHANNEL_ID = 'st-andrew-updates-chime';
+const NOTIFICATION_SOUND = 'notification_chime.wav';
 
 // Expo accepts at most 100 messages per request
 const EXPO_BATCH_SIZE = 100;
@@ -32,7 +34,7 @@ function buildExpoMessages(tokens, notification) {
     to,
     title: notification.title,
     body: notification.body,
-    sound: 'default',
+    sound: NOTIFICATION_SOUND,
     channelId: ANDROID_CHANNEL_ID,
     priority: 'high',
     data: {
@@ -96,6 +98,7 @@ async function sendExpoPush(messages, fetchImpl = fetch) {
 
 module.exports = {
   ANDROID_CHANNEL_ID,
+  NOTIFICATION_SOUND,
   isExpoPushToken,
   buildExpoMessages,
   parseExpoTickets,
