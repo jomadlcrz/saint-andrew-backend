@@ -126,6 +126,18 @@ test('resolves the login email for a number stored in either 09 or +63 form', as
   assert.equal(await lookup.resolveLoginEmail('09990000000'), null);
 });
 
+test('refuses to pick an account when several share the phone number', async () => {
+  const lookup = createAccountLookup({
+    db: createFakeFirestore({
+      users: {
+        u1: { phone: '09171234567', email: 'a@example.com' },
+        u2: { phone: '+639171234567', email: 'b@example.com' },
+      },
+    }),
+  });
+  await assert.rejects(lookup.resolveLoginEmail('09171234567'), { status: 409 });
+});
+
 test('phone availability ignores only the caller’s own account', async () => {
   const lookup = createAccountLookup({
     db: createFakeFirestore({ users: { u1: { phone: '09171234567' } } }),

@@ -34,6 +34,9 @@ async function resolveLoginPhone(req, res, next) {
     }
     return res.status(200).json({ success: true, email });
   } catch (err) {
+    if (err.status === 409) {
+      return res.status(409).json({ success: false, error: err.message });
+    }
     return next(err);
   }
 }

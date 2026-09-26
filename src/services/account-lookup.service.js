@@ -37,10 +37,16 @@ function createAccountLookup({ db: firestore }) {
     /**
      * @param {string} phone
      * @returns {Promise<string | null>} the account email, or null when no account uses this number
+     * @throws {Error} status 409 when several accounts carry this number, so login never guesses which one
      */
     async resolveLoginEmail(phone) {
-      const [userDoc] = await findUsersByPhone(phone, 1);
-      const email = userDoc?.data()?.email;
+      const docs = await findUsersByPhone(phone, 2);
+      if (docs.length > 1) {
+        const err = new Error('This mobile number is linked to more than one account. Please sign in with your email address.');
+        err.status = 409;
+        throw err;
+      }
+      const email = docs[0]?.data()?.email;
       return typeof email === 'string' && email ? email : null;
     },
 
