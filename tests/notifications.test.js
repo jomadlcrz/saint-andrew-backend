@@ -182,7 +182,12 @@ test('removes unregistered devices and survives push failures', async () => {
 });
 
 const { formatPaymentReminder } = require('../src/templates/sms.templates');
-const { applyReminderResult, pendingReminderChannels } = require('../src/services/preplan-reminder.service');
+const {
+  applyReminderResult,
+  pendingReminderChannels,
+  needsDueDayNotice,
+  paymentBreakdownRoute,
+} = require('../src/services/preplan-reminder.service');
 const { notifyUserHandler } = require('../src/controllers/notification.controller');
 
 test('payment reminder push text follows the plan kind, like the SMS', () => {
@@ -226,6 +231,25 @@ test('a failed SMS is retried without re-sending the in-app notification', () =>
 test('an SMS-only plan is done as soon as the SMS goes out', () => {
   const period = applyReminderResult({}, { canSms: true, userId: '', smsSent: true, notificationDone: false, now: 'D1' });
   assert.equal(period.reminderSentAt, 'D1');
+});
+
+test('the due-day notice goes out once, on the Manila due date, for unpaid periods', () => {
+  // 9 AM Manila on Oct 1 is 1 AM UTC: the due date is compared in Manila time, not the server's
+  const now = new Date('2026-10-01T01:00:00Z');
+  const dueDate = new Date('2026-09-30T16:00:00Z'); // Oct 1, 12 AM Manila
+
+  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate }, now), true);
+  assert.equal(needsDueDayNotice({ status: 'Paid', dueDate }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate, dueDayNotifiedAt: now }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate: new Date('2026-10-02T02:00:00Z') }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate: { toDate: () => dueDate } }, now), true);
+  assert.equal(needsDueDayNotice({ status: 'Pending' }, now), false);
+  // The heads-up reminder already went out today (schedule set up on its due date): no second push
+  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate, notificationReminderSentAt: now }, now), false);
+});
+
+test("payment reminders open the plan's payment breakdown in the app", () => {
+  assert.equal(paymentBreakdownRoute('plan123'), '/payments/plan123');
 });
 
 async function callNotifyUser(body) {

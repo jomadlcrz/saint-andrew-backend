@@ -3,7 +3,8 @@
  *
  * Runs as a daily node-cron sweep at 9:00 AM.
  * Scans active Pre-Planning contracts in Firestore (`pre_plans` collection)
- * and dispatches payment reminders for installments due within 3 days.
+ * and dispatches payment reminders for installments due within 3 days, plus an in-app/push
+ * "due today" notice on the due date itself.
  */
 
 const cron = require('node-cron');
@@ -14,6 +15,33 @@ const { formatPaymentReminder } = require('../templates/sms.templates');
 const { normalizePhilippinePhone, isValidPhilippinePhone } = require('../utils/phone.util');
 
 const REMINDER_WINDOW_DAYS = 3;
+// Due dates are Philippine calendar days, whatever the server's timezone is
+const BUSINESS_TIME_ZONE = 'Asia/Manila';
+
+/** The family's payment breakdown screen in the app (installments + receipt upload). */
+function paymentBreakdownRoute(planId) {
+  return `/payments/${planId}`;
+}
+
+function toDate(value) {
+  if (!value) return null;
+  const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function manilaDay(date) {
+  return date.toLocaleDateString('en-CA', { timeZone: BUSINESS_TIME_ZONE });
+}
+
+/** Whether an unpaid period falls due today (Manila) and still needs its due-day notice. */
+function needsDueDayNotice(period, now) {
+  if (!period || period.status === 'Paid' || period.dueDayNotifiedAt) return false;
+  const dueDate = toDate(period.dueDate);
+  if (!dueDate || manilaDay(dueDate) !== manilaDay(now)) return false;
+  // The heads-up reminder already reached the family today (a schedule set up on its due date)
+  const headsUpAt = toDate(period.notificationReminderSentAt);
+  return !(headsUpAt && manilaDay(headsUpAt) === manilaDay(now));
+}
 
 /**
  * Which reminder channels still need to go out for a schedule period.
@@ -102,14 +130,8 @@ async function sendPrePlanPaymentReminders() {
       if (!period || period.status === 'Paid') continue;
       if (period.reminderSentAt) continue; // Every channel already reminded for this period
 
-      let dueDate = null;
-      if (period.dueDate && typeof period.dueDate.toDate === 'function') {
-        dueDate = period.dueDate.toDate();
-      } else if (period.dueDate) {
-        dueDate = new Date(period.dueDate);
-      }
-
-      if (!dueDate || isNaN(dueDate.getTime()) || dueDate > windowEnd) continue;
+      const dueDate = toDate(period.dueDate);
+      if (!dueDate || dueDate > windowEnd) continue;
 
       const amountDue = Number(period.amountDue || 0) - Number(period.amountPaid || 0);
       const dueDateLabel = dueDate.toLocaleDateString('en-PH', {
@@ -169,7 +191,7 @@ async function sendPrePlanPaymentReminders() {
             type: 'payment_reminder',
             title: reminder.title,
             body: reminder.body,
-            route: '/(app)/arrangements',
+            route: paymentBreakdownRoute(doc.id),
             refId: doc.id,
           });
           // A userId with no account can never be notified, so don't retry it every day
@@ -193,6 +215,32 @@ async function sendPrePlanPaymentReminders() {
 
       // Only remind for the earliest qualifying unpaid period per sweep
       break;
+    }
+
+    // On the due date itself: a short in-app/push notice (the SMS already went out days before)
+    if (userId) {
+      for (let i = 0; i < schedule.length; i++) {
+        const period = schedule[i];
+        if (!needsDueDayNotice(period, now)) continue;
+        const amountDue = Number(period.amountDue || 0) - Number(period.amountPaid || 0);
+        try {
+          const result = await notifyUser({
+            userId,
+            type: 'payment_reminder',
+            title: 'Payment due today',
+            body: `Your installment ${period.periodIndex ?? i + 1} of ₱${amountDue.toLocaleString('en-PH')} is due today. Pay via GCash and attach your receipt in the app, or pay at our office.`,
+            route: paymentBreakdownRoute(doc.id),
+            refId: doc.id,
+          });
+          if (result.saved || result.reason === 'user-not-found') {
+            schedule[i] = { ...period, dueDayNotifiedAt: admin.firestore.Timestamp.now() };
+            scheduleChanged = true;
+            remindersSent += 1;
+          }
+        } catch (error) {
+          console.warn(`⚠️ [PrePlan Reminder] Due-day push failed for plan ${doc.id}:`, error.message);
+        }
+      }
     }
 
     if (scheduleChanged) {
@@ -225,4 +273,6 @@ module.exports = {
   initializeReminderCron,
   pendingReminderChannels,
   applyReminderResult,
+  needsDueDayNotice,
+  paymentBreakdownRoute,
 };
