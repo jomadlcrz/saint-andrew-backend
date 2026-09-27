@@ -19,6 +19,8 @@ const SEMAPHORE_API_KEY = (process.env.SEMAPHORE_API_KEY || '').trim();
 const BREVO_API_KEY = (process.env.BREVO_API_KEY || '').trim();
 const BREVO_SENDER_EMAIL = (process.env.BREVO_SENDER_EMAIL || 'saintandrewfh@gmail.com').trim();
 const FIREBASE_SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '';
+// The Firebase Web API key the apps use (public). Lets a password reset refuse the current password.
+const FIREBASE_WEB_API_KEY = (process.env.FIREBASE_WEB_API_KEY || '').trim();
 
 // Custom Allowed Origins
 const rawAllowedOrigins = process.env.ALLOWED_ORIGINS || '';
@@ -42,6 +44,7 @@ const config = {
   },
   firebase: {
     serviceAccountJson: FIREBASE_SERVICE_ACCOUNT_JSON,
+    webApiKey: FIREBASE_WEB_API_KEY,
   },
   cors: {
     customOrigins: customAllowedOrigins,

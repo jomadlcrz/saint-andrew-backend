@@ -8,6 +8,8 @@ const otpService = require('../services/otp.service');
 const resetTokenService = require('../services/reset-token.service');
 const brevoService = require('../services/brevo.service');
 const { getOtpEmailTemplate, getResetLinkEmailTemplate } = require('../templates/email.templates');
+const config = require('../config/env.config');
+const { passwordProblem, isCurrentPassword, SAME_PASSWORD_MESSAGE } = require('../utils/password-policy');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -141,16 +143,25 @@ async function resetPassword(req, res, next) {
       });
     }
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        error: 'Password must be at least 8 characters long.',
-      });
-    }
-
     if (!isFirebaseInitialized || !admin) {
       return res.status(503).json({
         error: 'Authentication service is not available on the server.',
       });
+    }
+
+    // Checked before the reset session is used up, so a weak password doesn't cost a new code
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch {
+      userRecord = null;
+    }
+    const problem = passwordProblem(newPassword, { email, name: userRecord?.displayName });
+    if (problem) {
+      return res.status(400).json({ error: problem });
+    }
+    if (await isCurrentPassword(email, newPassword, config.firebase.webApiKey)) {
+      return res.status(400).json({ error: SAME_PASSWORD_MESSAGE });
     }
 
     const tokenResult = await resetTokenService.verifyAndConsumeResetToken(email, token);
@@ -161,8 +172,10 @@ async function resetPassword(req, res, next) {
     }
 
     try {
-      const userRecord = await admin.auth().getUserByEmail(email);
+      if (!userRecord) throw new Error('No account for this email.');
       await admin.auth().updateUser(userRecord.uid, { password: newPassword });
+      // Anyone signed in with the old password (e.g. on a lost phone) is signed out
+      await admin.auth().revokeRefreshTokens(userRecord.uid);
     } catch (err) {
       console.error(`❌ [Auth] Error updating password for ${email}:`, err.message);
       return res.status(400).json({
@@ -256,9 +269,56 @@ async function sendResetLink(req, res, next) {
   }
 }
 
+/**
+ * Changes the signed-in family's password (Change Password in the app, not Forgot Password).
+ * The app signs in again with the current password first (Firebase re-authentication), so the ID
+ * token here must be fresh. Other devices are signed out; the app signs itself back in with the new
+ * password, so the family stays on the page.
+ * POST /change-password   Authorization: Bearer <Firebase ID token>
+ * Body: { currentPassword, newPassword }
+ */
+const RECENT_SIGN_IN_SECONDS = 5 * 60;
+
+async function changePassword(req, res, next) {
+  try {
+    const currentPassword = String(req.body?.currentPassword || '');
+    const newPassword = String(req.body?.newPassword || '');
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Please enter your current and new password.' });
+    }
+    if (!isFirebaseInitialized || !admin) {
+      return res.status(503).json({ error: 'Authentication service is not available on the server.' });
+    }
+
+    const uid = req.user?.uid;
+    const authTime = Number(req.user?.auth_time || 0);
+    if (!uid) return res.status(401).json({ error: 'Please sign in again.' });
+    // The app re-checked the current password just now; an older sign-in isn't enough
+    if (!authTime || Date.now() / 1000 - authTime > RECENT_SIGN_IN_SECONDS) {
+      return res.status(401).json({ error: 'For your security, please enter your current password again.' });
+    }
+
+    if (newPassword === currentPassword) {
+      return res.status(400).json({ error: SAME_PASSWORD_MESSAGE });
+    }
+    const userRecord = await admin.auth().getUser(uid);
+    const problem = passwordProblem(newPassword, { email: userRecord.email, name: userRecord.displayName });
+    if (problem) return res.status(400).json({ error: problem });
+
+    await admin.auth().updateUser(uid, { password: newPassword });
+    await admin.auth().revokeRefreshTokens(uid);
+    console.log(`✅ [Auth] Password changed for ${uid}`);
+    return res.status(200).json({ success: true, message: 'Password changed.' });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   sendOtpEmail,
   verifyOtp,
   resetPassword,
   sendResetLink,
+  changePassword,
+  RECENT_SIGN_IN_SECONDS,
 };
