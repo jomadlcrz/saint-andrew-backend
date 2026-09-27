@@ -7,7 +7,7 @@
 const { admin, db, isFirebaseInitialized } = require('../config/firebase.config');
 const pushService = require('./push.service');
 
-const NOTIFICATION_TYPES = ['chat_reply', 'booking_status', 'preplan_status', 'payment', 'payment_reminder'];
+const NOTIFICATION_TYPES = ['chat_reply', 'booking_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial'];
 
 /**
  * Factory so tests can inject a fake Firestore and push sender.
