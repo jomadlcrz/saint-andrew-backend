@@ -186,6 +186,8 @@ const {
   applyReminderResult,
   pendingReminderChannels,
   needsDueDayNotice,
+  amountOwed,
+  periodsByDueDate,
   paymentBreakdownRoute,
 } = require('../src/services/preplan-reminder.service');
 const { notifyUserHandler } = require('../src/controllers/notification.controller');
@@ -238,14 +240,14 @@ test('the due-day notice goes out once, on the Manila due date, for unpaid perio
   const now = new Date('2026-10-01T01:00:00Z');
   const dueDate = new Date('2026-09-30T16:00:00Z'); // Oct 1, 12 AM Manila
 
-  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate }, now), true);
-  assert.equal(needsDueDayNotice({ status: 'Paid', dueDate }, now), false);
-  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate, dueDayNotifiedAt: now }, now), false);
-  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate: new Date('2026-10-02T02:00:00Z') }, now), false);
-  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate: { toDate: () => dueDate } }, now), true);
-  assert.equal(needsDueDayNotice({ status: 'Pending' }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', amountDue: 5000, dueDate }, now), true);
+  assert.equal(needsDueDayNotice({ status: 'Paid', amountDue: 5000, dueDate }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', amountDue: 5000, dueDate, dueDayNotifiedAt: now }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', amountDue: 5000, dueDate: new Date('2026-10-02T02:00:00Z') }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', amountDue: 5000, dueDate: { toDate: () => dueDate } }, now), true);
+  assert.equal(needsDueDayNotice({ status: 'Pending', amountDue: 5000 }, now), false);
   // The heads-up reminder already went out today (schedule set up on its due date): no second push
-  assert.equal(needsDueDayNotice({ status: 'Pending', dueDate, notificationReminderSentAt: now }, now), false);
+  assert.equal(needsDueDayNotice({ status: 'Pending', amountDue: 5000, dueDate, notificationReminderSentAt: now }, now), false);
 });
 
 test("payment reminders open the plan's payment breakdown in the app", () => {
@@ -295,4 +297,19 @@ test('/notify-user accepts in-app routes', async () => {
     const res = await callNotifyUser({ ...valid, route });
     assert.equal(res.statusCode, 200, `route ${JSON.stringify(route)} should be accepted`);
   }
+});
+
+test('reminders skip empty ₱0 rows and follow due dates', () => {
+  assert.equal(amountOwed({ amountDue: 0, amountPaid: 0, status: 'Upcoming' }), 0);
+  assert.equal(amountOwed({ amountDue: 1000, amountPaid: 400, status: 'Upcoming' }), 600);
+  assert.equal(amountOwed({ amountDue: 1000, amountPaid: 0, status: 'Paid' }), 0);
+  const now = new Date('2026-09-27T02:00:00Z'); // Sep 27, 10 AM in Manila
+  assert.equal(needsDueDayNotice({ amountDue: 0, amountPaid: 0, dueDate: new Date('2026-09-27T01:00:00Z') }, now), false);
+
+  const schedule = [
+    { periodIndex: 1, dueDate: new Date('2026-09-29T00:00:00Z'), amountDue: 29500 },
+    { periodIndex: 2, dueDate: new Date('2026-10-03T00:00:00Z'), amountDue: 22125 },
+    { periodIndex: 3, dueDate: new Date('2026-09-28T00:00:00Z'), amountDue: 1000 },
+  ];
+  assert.deepEqual(periodsByDueDate(schedule), [2, 0, 1]);
 });

@@ -33,9 +33,27 @@ function manilaDay(date) {
   return date.toLocaleDateString('en-CA', { timeZone: BUSINESS_TIME_ZONE });
 }
 
+/** What's still owed on a period (0 for paid ones and the empty ₱0 rows older walk-ins left). */
+function amountOwed(period) {
+  if (!period || period.status === 'Paid') return 0;
+  return Math.max(0, Number(period.amountDue || 0) - Number(period.amountPaid || 0));
+}
+
+/**
+ * Schedule positions in due-date order (then period number), the order families pay in. A charge
+ * added later (e.g. extra embalming) sits at the end of the array but may be due earlier.
+ */
+function periodsByDueDate(schedule) {
+  return schedule
+    .map((period, i) => ({ i, due: toDate(period?.dueDate)?.getTime() ?? Infinity, index: Number(period?.periodIndex) || i + 1 }))
+    .sort((a, b) => a.due - b.due || a.index - b.index)
+    .map(({ i }) => i);
+}
+
 /** Whether an unpaid period falls due today (Manila) and still needs its due-day notice. */
 function needsDueDayNotice(period, now) {
   if (!period || period.status === 'Paid' || period.dueDayNotifiedAt) return false;
+  if (amountOwed(period) <= 0) return false;
   const dueDate = toDate(period.dueDate);
   if (!dueDate || manilaDay(dueDate) !== manilaDay(now)) return false;
   // The heads-up reminder already reached the family today (a schedule set up on its due date)
@@ -128,9 +146,10 @@ async function sendPrePlanPaymentReminders() {
 
     let scheduleChanged = false;
 
-    for (let i = 0; i < schedule.length; i++) {
+    for (const i of periodsByDueDate(schedule)) {
       const period = schedule[i];
       if (!period || period.status === 'Paid') continue;
+      if (amountOwed(period) <= 0) continue; // Nothing owed (e.g. an empty ₱0 row)
       if (period.reminderSentAt) continue; // Every channel already reminded for this period
 
       const dueDate = toDate(period.dueDate);
@@ -222,7 +241,7 @@ async function sendPrePlanPaymentReminders() {
 
     // On the due date itself: a short in-app/push notice (the SMS already went out days before)
     if (userId) {
-      for (let i = 0; i < schedule.length; i++) {
+      for (const i of periodsByDueDate(schedule)) {
         const period = schedule[i];
         if (!needsDueDayNotice(period, now)) continue;
         const amountDue = Number(period.amountDue || 0) - Number(period.amountPaid || 0);
@@ -278,4 +297,6 @@ module.exports = {
   applyReminderResult,
   needsDueDayNotice,
   paymentBreakdownRoute,
+  amountOwed,
+  periodsByDueDate,
 };
