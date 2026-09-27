@@ -292,7 +292,9 @@ test('tracking shows payment status from the amounts and whether a plan was clai
   const paid = toSummary({ collection: 'transactions', id: 't1', data: { totalPrice: 1000, amountPaid: 1000, paymentStatus: 'unpaid' } });
   assert.equal(paid.paymentStatus, 'paid');
   assert.equal(paid.claimed, false);
-  const claimed = toSummary({ collection: 'pre_plans', id: 'p1', data: { totalAmount: 1000, amountPaid: 200, lifecycleStatus: 'Claimed' } });
+  const claimed = toSummary({ collection: 'pre_plans', id: 'p1', data: { planKind: 'preNeed', totalAmount: 1000, amountPaid: 200, lifecycleStatus: 'Claimed' } });
+  const atNeed = toSummary({ collection: 'pre_plans', id: 'p2', data: { planKind: 'atNeed', totalAmount: 1000, lifecycleStatus: 'Claimed' } });
+  assert.equal(atNeed.claimed, false);
   assert.equal(claimed.paymentStatus, 'partial');
   assert.equal(claimed.claimed, true);
 });

@@ -66,8 +66,9 @@ function toSummary(match) {
       serviceType: data.selectedPackage?.name || 'Pre-Need Plan',
       status: String(data.requestStatus || 'pending').toLowerCase(),
       paymentStatus: paymentStatusFor(totalAmount, amountPaid),
-      // A Pre-Need plan whose holder has passed (staff marked deceased)
-      claimed: data.lifecycleStatus === 'Claimed',
+      // A Pre-Need plan whose holder has passed (staff marked deceased). At-Need cases are saved
+      // "Claimed" from the start, so they never count.
+      claimed: data.planKind === 'preNeed' && data.lifecycleStatus === 'Claimed',
       totalPrice: totalAmount,
       amountPaid,
       balance: data.balance ?? totalAmount - amountPaid,
