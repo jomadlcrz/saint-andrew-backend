@@ -38,6 +38,12 @@ function toIso(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+/** Paid in full / partly / not yet, from the amounts. */
+function paymentStatusFor(total, paid) {
+  if (total > 0 && paid >= total) return 'paid';
+  return paid > 0 ? 'partial' : 'unpaid';
+}
+
 /**
  * The fields a family sees when tracking an arrangement. Never includes contact details,
  * documents, signatures or payment proofs.
@@ -59,7 +65,9 @@ function toSummary(match) {
           : data.deceasedName || 'Loved One',
       serviceType: data.selectedPackage?.name || 'Pre-Need Plan',
       status: String(data.requestStatus || 'pending').toLowerCase(),
-      paymentStatus: amountPaid >= totalAmount && totalAmount > 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'unpaid',
+      paymentStatus: paymentStatusFor(totalAmount, amountPaid),
+      // A Pre-Need plan whose holder has passed (staff marked deceased)
+      claimed: data.lifecycleStatus === 'Claimed',
       totalPrice: totalAmount,
       amountPaid,
       balance: data.balance ?? totalAmount - amountPaid,
@@ -75,7 +83,9 @@ function toSummary(match) {
     deceasedName: data.deceasedName || 'Loved One',
     serviceType: data.serviceType || '',
     status: data.status || 'pending',
-    paymentStatus: data.paymentStatus || 'unpaid',
+    // From the amounts, like admin-web: never a stale stored label
+    paymentStatus: paymentStatusFor(Number(data.totalPrice) || 0, Number(data.amountPaid) || 0),
+    claimed: data.lifecycleStatus === 'Claimed',
     totalPrice: Number(data.totalPrice) || 0,
     amountPaid: Number(data.amountPaid) || 0,
     balance: Number(data.balance) || 0,

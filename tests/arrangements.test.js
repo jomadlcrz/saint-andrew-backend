@@ -286,3 +286,39 @@ test('backfill apply writes only the planned owners', async () => {
   assert.equal(firestore.read('transactions', 'walkIn').userId, 'walk-in');
   assert.equal(firestore.writes.length, updates.length);
 });
+
+test('tracking shows payment status from the amounts and whether a plan was claimed', () => {
+  const { toSummary } = require('../src/services/arrangement.service');
+  const paid = toSummary({ collection: 'transactions', id: 't1', data: { totalPrice: 1000, amountPaid: 1000, paymentStatus: 'unpaid' } });
+  assert.equal(paid.paymentStatus, 'paid');
+  assert.equal(paid.claimed, false);
+  const claimed = toSummary({ collection: 'pre_plans', id: 'p1', data: { totalAmount: 1000, amountPaid: 200, lifecycleStatus: 'Claimed' } });
+  assert.equal(claimed.paymentStatus, 'partial');
+  assert.equal(claimed.claimed, true);
+});
+
+test('linked contract backfill copies the case decision, payments and claim to the app request', () => {
+  const { planLinkedContractBackfill } = require('../scripts/backfill-linked-contracts');
+  const plans = [
+    { id: 'case1', data: { referenceNumber: 'PN-1', requestStatus: 'Accepted', totalAmount: 1000, amountPaid: 400, lifecycleStatus: 'Claimed' } },
+    { id: 'case2', data: { referenceNumber: 'PN-2', requestStatus: 'Accepted', totalAmount: 500, amountPaid: 0 } },
+    { id: 'walk1', data: { referenceNumber: 'SA-9', requestStatus: 'Accepted', totalAmount: 900, amountPaid: 900 } },
+  ];
+  const contracts = [
+    { id: 'req1', data: { referenceCode: 'PN-1', status: 'pending', totalPrice: 1000, amountPaid: 0 } },
+    { id: 'req2', data: { referenceCode: 'PN-2', status: 'in_progress', totalPrice: 500, amountPaid: 0 } },
+    // Same id as its case: kept in step already
+    { id: 'walk1', data: { referenceCode: 'SA-9', status: 'in_progress', totalPrice: 900, amountPaid: 0 } },
+  ];
+  const updates = planLinkedContractBackfill({ plans, contracts });
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].id, 'req1');
+  assert.deepEqual(updates[0].fields, {
+    amountPaid: 400,
+    totalPrice: 1000,
+    balance: 600,
+    paymentStatus: 'partial',
+    status: 'in_progress',
+    lifecycleStatus: 'Claimed',
+  });
+});
