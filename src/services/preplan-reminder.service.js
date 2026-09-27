@@ -83,10 +83,11 @@ async function sendPrePlanPaymentReminders() {
 
   let snapshot;
   try {
+    // No `isCompleted == false` filter: walk-ins and online bookings never set the field, and an
+    // equality filter skips documents without it. Paid periods are skipped below anyway.
     snapshot = await db
       .collection('pre_plans')
       .where('requestStatus', '==', 'Accepted')
-      .where('isCompleted', '==', false)
       .get();
   } catch (error) {
     console.warn('⚠️ [PrePlan Reminder] Failed to query pre_plans:', error.message);
@@ -97,6 +98,8 @@ async function sendPrePlanPaymentReminders() {
 
   for (const doc of snapshot.docs) {
     const data = doc.data();
+    // Plans closed out under the old "Mark Completed" step were fully paid: nothing to remind
+    if (data.isCompleted === true) continue;
     const schedule = Array.isArray(data.paymentSchedule) ? data.paymentSchedule : [];
     // Prefer the Authorized Family Representative's phone (the living contact) once present;
     // fall back to the legacy contactPhone field for documents written before representativeInfo
