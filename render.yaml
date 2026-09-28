@@ -13,3 +13,9 @@ services:
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
+      # Staff email alerts (new requests, receipts, burial change requests). Optional:
+      # comma-separated inboxes (default: BREVO_SENDER_EMAIL) and the admin portal link in the email
+      - key: STAFF_ALERT_EMAILS
+        sync: false
+      - key: ADMIN_WEB_URL
+        sync: false

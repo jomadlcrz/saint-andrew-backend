@@ -184,8 +184,81 @@ function getResetLinkEmailTemplate({ resetLink, expiryHours = 1 }) {
   `.trim();
 }
 
+/**
+ * Staff alert: what families sent (new requests, receipts to check, burial change requests)
+ * @param {{ items: { kind: string, title: string, detail: string, at: number, id: string }[], adminUrl?: string }} params
+ */
+function getStaffAlertEmailTemplate({ items, adminUrl = '' }) {
+  const KIND_LABEL = { request: 'New request', receipt: 'Receipt to check', schedule: 'Burial change request' };
+  const when = (ms) =>
+    new Date(ms).toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  const rows = items
+    .map(
+      (item) => `
+                <tr>
+                  <td style="padding: 12px 0; border-bottom: 1px solid #E2E0D8;">
+                    <p style="margin: 0 0 2px 0; color: #B08D57; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">${escapeHtml(KIND_LABEL[item.kind] || 'Update')}</p>
+                    <p style="margin: 0; color: #1F3A5F; font-size: 15px; font-weight: 600;">${escapeHtml(item.title)}</p>
+                    <p style="margin: 2px 0 0 0; color: #64748B; font-size: 13px;">${escapeHtml(item.detail)} · ${escapeHtml(when(item.at))}</p>
+                  </td>
+                </tr>`
+    )
+    .join('');
+  const button = adminUrl
+    ? `<p style="margin: 24px 0 0 0;"><a href="${escapeHtml(adminUrl)}" style="display: inline-block; background-color: #1F3A5F; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;">Open the admin portal</a></p>`
+    : '';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Needs your attention</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F3EFE8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F3EFE8; padding: 30px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; border: 1px solid #E2E0D8; overflow: hidden;">
+          <tr>
+            <td style="background-color: #1F3A5F; padding: 24px 30px;">
+              <h2 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">St. Andrew Funeral Home</h2>
+              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">From families, waiting for staff</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 30px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">${rows}
+              </table>
+              ${button}
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FBF9F5; padding: 16px 30px; border-top: 1px solid #E2E0D8; text-align: center; color: #64748B; font-size: 12px;">
+              Review these in the admin portal. You won't be emailed about the same item twice.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
 module.exports = {
   getSupportEmailTemplate,
   getOtpEmailTemplate,
   getResetLinkEmailTemplate,
+  getStaffAlertEmailTemplate,
 };

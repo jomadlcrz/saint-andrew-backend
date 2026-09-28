@@ -9,6 +9,7 @@ const { isFirebaseInitialized } = require('./config/firebase.config');
 const semaphoreService = require('./services/semaphore.service');
 const brevoService = require('./services/brevo.service');
 const { initializeReminderCron } = require('./services/preplan-reminder.service');
+const { initializeStaffAlertCron } = require('./services/staff-alert.service');
 
 const server = app.listen(config.port, () => {
   const modeLabel = isFirebaseInitialized
@@ -37,6 +38,7 @@ const server = app.listen(config.port, () => {
 
   // Start background cron jobs
   initializeReminderCron();
+  initializeStaffAlertCron();
 });
 
 // Handle graceful shutdown

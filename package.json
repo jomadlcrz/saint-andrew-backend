@@ -15,6 +15,7 @@
     "test:notifications": "node --test tests/notifications.test.js",
     "test:idempotency": "node tests/idempotency.test.js",
     "test:arrangements": "node --test tests/arrangements.test.js",
+    "test:staff-alerts": "node --test tests/staff-alerts.test.js",
     "backfill:owners": "node scripts/backfill-owner-ids.js",
     "backfill:linked-contracts": "node scripts/backfill-linked-contracts.js"
   },
