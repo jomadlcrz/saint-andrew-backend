@@ -1,0 +1,61 @@
+# Daily Firestore backup, encrypted, kept for 90 days as a workflow artifact.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT_JSON  the same service account JSON the backend uses on Render
+#   BACKUP_PASSPHRASE              a long passphrase; keep a copy somewhere safe
+#
+# Restore a file: download the artifact, then
+#   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in firestore-backup-DATE.json.gz.enc -out backup.json.gz -pass pass:"<passphrase>"
+#   gunzip backup.json.gz
+name: Firestore backup
+
+on:
+  schedule:
+    # 2:00 AM Philippine time (18:00 UTC)
+    - cron: "0 18 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci --omit=dev
+
+      - name: Back up Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          NODE_ENV: production
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON secret"; exit 1; fi
+          DAY=$(TZ=Asia/Manila date +%F)
+          echo "DAY=$DAY" >> "$GITHUB_ENV"
+          node scripts/backup-firestore.js "firestore-backup-$DAY.json"
+
+      - name: Encrypt (never stored in plain text)
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$BACKUP_PASSPHRASE" ]; then echo "Missing BACKUP_PASSPHRASE secret"; exit 1; fi
+          gzip -9 "firestore-backup-$DAY.json"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in "firestore-backup-$DAY.json.gz" -out "firestore-backup-$DAY.json.gz.enc" \
+            -pass env:BACKUP_PASSPHRASE
+          rm -f "firestore-backup-$DAY.json.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firestore-backup-${{ env.DAY }}
+          path: firestore-backup-${{ env.DAY }}.json.gz.enc
+          retention-days: 90
+          if-no-files-found: error
