@@ -59,11 +59,12 @@ function formatPaymentReminder({
       body: `Installment${installment} of ${due} is due on ${dueDateLabel}.`,
     };
   }
+  // At-Need (and claimed) cases: one balance, paid any amount, any time, until the burial
   if (paymentPlanKind === 'shortTerm') {
     return {
-      sms: `Saint Andrew Funeral Homes: Installment${installment} of your short-term payment plan — ${due} — is due on ${dueDateLabel}. Remaining balance: ${balance}.`,
+      sms: `Saint Andrew Funeral Homes: Please settle your remaining balance of ${due} by ${dueDateLabel} (the burial). You can pay any amount, any time, until then. Remaining balance: ${balance}.`,
       title: 'Payment reminder',
-      body: `Installment${installment} of your short-term plan (${due}) is due on ${dueDateLabel}. Remaining balance: ${balance}.`,
+      body: `Please settle ${due} by ${dueDateLabel} (the burial). Any amount, any time, until then. Remaining balance: ${balance}.`,
     };
   }
   return {
