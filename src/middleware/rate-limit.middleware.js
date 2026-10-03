@@ -83,6 +83,16 @@ const phoneLookupLimiter = rateLimit({
   handler: jsonRateLimitHandler('Too many lookup attempts. Please try again in 15 minutes.'),
 });
 
+// SMS codes cost Semaphore credits, so a device gets far fewer than email codes. The per-number
+// and all-users daily limits live in phone-account.service.js.
+const smsCodeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many text codes from this device. Please try again in an hour.'),
+});
+
 // Reference code + phone checks for tracking or claiming an arrangement
 const arrangementLookupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -102,4 +112,5 @@ module.exports = {
   resetPasswordLimiter,
   supportEmailLimiter,
   smsLimiter,
+  smsCodeLimiter,
 };

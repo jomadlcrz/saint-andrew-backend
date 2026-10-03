@@ -46,8 +46,10 @@ function createAccountLookup({ db: firestore }) {
         err.status = 409;
         throw err;
       }
-      const email = docs[0]?.data()?.email;
-      return typeof email === 'string' && email ? email : null;
+      const data = docs[0]?.data() || {};
+      // A phone-number account has no email; it signs in with its internal one (phone-account.service)
+      const email = (typeof data.email === 'string' && data.email) || (typeof data.loginEmail === 'string' && data.loginEmail);
+      return email || null;
     },
 
     /**

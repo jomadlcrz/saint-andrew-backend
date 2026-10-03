@@ -37,6 +37,10 @@ const config = {
     apiKey: SEMAPHORE_API_KEY,
     isConfigured: Boolean(SEMAPHORE_API_KEY),
   },
+  // Sign-up / reset codes by text: most sent for everyone per day (protects Semaphore credits)
+  smsCodes: {
+    dailyLimit: Number(process.env.SMS_CODE_DAILY_LIMIT) > 0 ? Number(process.env.SMS_CODE_DAILY_LIMIT) : 200,
+  },
   brevo: {
     apiKey: BREVO_API_KEY,
     senderEmail: BREVO_SENDER_EMAIL,
