@@ -10,7 +10,10 @@ const resetTokenService = require('../services/reset-token.service');
 const semaphoreService = require('../services/semaphore.service');
 const { createAccountLookup } = require('../services/account-lookup.service');
 const { createPhoneAccounts } = require('../services/phone-account.service');
+const { createFindAccount } = require('../services/find-account.service');
 const config = require('../config/env.config');
+const { getErrorMessage } = require('../middleware/error.middleware');
+const { HTTP_STATUS, isClientError } = require('../utils/http-status');
 
 function getPhoneAccounts() {
   if (!isFirebaseInitialized || !admin || !db) {
@@ -36,8 +39,8 @@ function respond(handler) {
       return await handler(req, res);
     } catch (err) {
       // 503: the daily text-code limit for everyone was reached; the family should see why
-      if (err.status && (err.status < 500 || err.status === 503)) {
-        return res.status(err.status).json({ success: false, error: err.message });
+      if (isClientError(err.status) || err.status === HTTP_STATUS.SERVICE_UNAVAILABLE) {
+        return res.status(err.status).json({ success: false, error: getErrorMessage(err, err.status) });
       }
       return next(err);
     }
@@ -99,4 +102,19 @@ const resetPasswordPhone = respond(async (req, res) => {
   return res.status(200).json({ success: true, message: 'Password reset successfully.' });
 });
 
-module.exports = { sendOtpSms, registerPhone, verifyOtpSms, resetPasswordPhone };
+/**
+ * POST /find-account
+ * Body: { contact }  (an email or a mobile number)  →  { found, kind: 'email' | 'phone' }
+ * Forgot password's first step, so the apps can say "No account found" instead of waiting for a code.
+ */
+const findAccount = respond(async (req, res) => {
+  if (!isFirebaseInitialized || !admin || !db) {
+    const err = new Error('Accounts are not available on the server right now.');
+    err.status = 503;
+    throw err;
+  }
+  const result = await createFindAccount({ auth: admin.auth(), lookup: createAccountLookup({ db }) })(req.body?.contact);
+  return res.status(200).json({ success: true, ...result });
+});
+
+module.exports = { sendOtpSms, registerPhone, verifyOtpSms, resetPasswordPhone, findAccount };

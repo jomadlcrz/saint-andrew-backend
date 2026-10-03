@@ -230,3 +230,52 @@ test('keeps the address picked from the PSGC list next to the address text', asy
   assert.equal(saved.extra, undefined);
 });
 
+test('Find your account: says whether an email or a number has an account', async () => {
+  const { createFindAccount } = require('../src/services/find-account.service');
+  const auth = {
+    async getUserByEmail(email) {
+      if (email === 'maria@example.com') return { uid: 'u1' };
+      const err = new Error('no user');
+      err.code = 'auth/user-not-found';
+      throw err;
+    },
+  };
+  const lookup = { isPhoneAvailable: async (phone) => phone !== '09171234567' };
+  const findAccount = createFindAccount({ auth, lookup });
+
+  assert.deepEqual(await findAccount(' Maria@Example.com '), { found: true, kind: 'email' });
+  assert.deepEqual(await findAccount('nobody@example.com'), { found: false, kind: 'email' });
+  assert.deepEqual(await findAccount('0917 123 4567'), { found: true, kind: 'phone' });
+  assert.deepEqual(await findAccount('+639181234567'), { found: false, kind: 'phone' });
+  await assert.rejects(findAccount('maria'), /valid email address or mobile number/);
+  // A number account's internal sign-in email can't be looked up
+  await assert.rejects(findAccount('p.abc@phone.standrew.invalid'), /valid email address or mobile number/);
+  await assert.rejects(findAccount(''), /enter your email or mobile number/);
+});
+
+test('a gateway failure reaches the family as a plain message, never the raw gateway error', async () => {
+  const { createPhoneAccounts } = require('../src/services/phone-account.service');
+  const failing = createPhoneAccounts({
+    db: setup().db,
+    auth: {},
+    otp: { generateOtp: () => '123456', storeOtp: async () => {} },
+    resetTokens: {},
+    sms: { sendSms: async () => { const e = new Error('Semaphore API rejected request (400): {"apikey":["invalid"]}'); e.status = 400; throw e; } },
+    lookup: { isPhoneAvailable: async () => true },
+  });
+  await assert.rejects(failing.requestCode({ phone: '09171234567', purpose: 'signup' }), (err) => {
+    assert.equal(err.status, 503);
+    assert.doesNotMatch(err.message, /Semaphore|apikey/);
+    return true;
+  });
+});
+
+test('the error handler never shows raw library errors', () => {
+  const { getErrorMessage } = require('../src/middleware/error.middleware');
+  assert.equal(getErrorMessage(new Error('Please enter your home address.'), 400), 'Please enter your home address.');
+  assert.match(getErrorMessage(new Error('Firebase: Error (auth/invalid-credential).'), 400), /couldn't read that request/);
+  assert.match(getErrorMessage(new Error('Cannot read properties of undefined'), 500), /Something went wrong on our side/);
+  assert.match(getErrorMessage(Object.assign(new Error('Unexpected token } in JSON'), { type: 'entity.parse.failed' }), 400), /couldn't read that request/);
+  assert.match(getErrorMessage(new Error('too many'), 429), /too many/);
+});
+

@@ -93,6 +93,16 @@ const smsCodeLimiter = rateLimit({
   handler: jsonRateLimitHandler('Too many text codes from this device. Please try again in an hour.'),
 });
 
+// Forgot password's "Find your account" says whether an email or number has an account, so it is
+// kept as tight as the other lookups (enumerating accounts mustn't be practical)
+const findAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many searches. Please try again in 15 minutes.'),
+});
+
 // Reference code + phone checks for tracking or claiming an arrangement
 const arrangementLookupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -104,6 +114,7 @@ const arrangementLookupLimiter = rateLimit({
 
 module.exports = {
   arrangementLookupLimiter,
+  findAccountLimiter,
   notifyLimiter,
   phoneLookupLimiter,
   otpRequestLimiter,

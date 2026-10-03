@@ -13,6 +13,7 @@ const {
   resetLinkLimiter,
   resetPasswordLimiter,
   smsCodeLimiter,
+  findAccountLimiter,
 } = require('../middleware/rate-limit.middleware');
 
 router.post('/send-otp-email', otpRequestLimiter, authController.sendOtpEmail);
@@ -26,5 +27,8 @@ router.post('/send-otp-sms', smsCodeLimiter, phoneAccountController.sendOtpSms);
 router.post('/register-phone', otpVerifyLimiter, phoneAccountController.registerPhone);
 router.post('/verify-otp-sms', otpVerifyLimiter, phoneAccountController.verifyOtpSms);
 router.post('/reset-password-phone', resetPasswordLimiter, phoneAccountController.resetPasswordPhone);
+
+// Forgot password: is there an account with this email or number?
+router.post('/find-account', findAccountLimiter, phoneAccountController.findAccount);
 
 module.exports = router;

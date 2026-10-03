@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const { normalizePhilippinePhone, isValidPhilippinePhone } = require('../utils/phone.util');
 const { passwordProblem } = require('../utils/password-policy');
+const { HTTP_STATUS } = require('../utils/http-status');
 
 /** Reserved domain (RFC 2606): mail to it can never be delivered. */
 const INTERNAL_EMAIL_DOMAIN = 'phone.standrew.invalid';
@@ -125,7 +126,13 @@ function createPhoneAccounts({ db, auth, otp, resetTokens, sms, lookup, now = ()
       await allowCode(phone);
       const code = otp.generateOtp();
       await otp.storeOtp(otpKey(purpose, phone), code);
-      await sms.sendSms({ number: phone, message: smsMessage(code) });
+      try {
+        await sms.sendSms({ number: phone, message: smsMessage(code) });
+      } catch (err) {
+        // The gateway's own error (and its status) stays in the log; the family gets a plain message
+        console.error(`❌ [PhoneAccounts] Could not text the ${purpose} code:`, err.message);
+        throw phoneError("We couldn't send the text message right now. Please try again in a few minutes.", HTTP_STATUS.SERVICE_UNAVAILABLE);
+      }
       return { sent: true };
     },
 
