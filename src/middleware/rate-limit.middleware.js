@@ -112,8 +112,18 @@ const arrangementLookupLimiter = rateLimit({
   handler: jsonRateLimitHandler('Too many arrangement lookups. Please try again in 15 minutes.'),
 });
 
+// Chapel availability: read by every family's request form (days only, cached for a minute)
+const chapelLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many requests. Please try again in a few minutes.'),
+});
+
 module.exports = {
   arrangementLookupLimiter,
+  chapelLimiter,
   findAccountLimiter,
   notifyLimiter,
   phoneLookupLimiter,
