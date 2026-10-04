@@ -22,6 +22,9 @@ const FIREBASE_SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON 
 // The Firebase Web API key the apps use (public). Lets a password reset refuse the current password.
 const FIREBASE_WEB_API_KEY = (process.env.FIREBASE_WEB_API_KEY || '').trim();
 
+// The family's website, for links in emails (e.g. their contract)
+const PUBLIC_WEB_URL = (process.env.PUBLIC_WEB_URL || 'https://saint-andrew.vercel.app').trim().replace(/\/+$/, '');
+
 // Custom Allowed Origins
 const rawAllowedOrigins = process.env.ALLOWED_ORIGINS || '';
 const customAllowedOrigins = rawAllowedOrigins
@@ -53,6 +56,7 @@ const config = {
   cors: {
     customOrigins: customAllowedOrigins,
   },
+  publicWebUrl: PUBLIC_WEB_URL,
 };
 
 module.exports = config;

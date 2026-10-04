@@ -17,9 +17,10 @@ const BREVO_ACCOUNT_URL = 'https://api.brevo.com/v3/account';
  * @param {string} params.htmlContent - HTML body
  * @param {{ email: string, name?: string }} [params.replyTo] - Reply-to recipient
  * @param {string} [params.senderName] - Display name for sender
+ * @param {Array<{ name: string, content: string }>} [params.attachments] - Files, as base64 content
  * @returns {Promise<any>}
  */
-async function sendTransactionalEmail({ to, subject, htmlContent, replyTo, senderName }) {
+async function sendTransactionalEmail({ to, subject, htmlContent, replyTo, senderName, attachments }) {
   if (!config.brevo.isConfigured) {
     const error = new Error('BREVO_API_KEY is not configured on the backend.');
     error.status = 503;
@@ -39,6 +40,10 @@ async function sendTransactionalEmail({ to, subject, htmlContent, replyTo, sende
     subject: subject,
     htmlContent: htmlContent,
   };
+
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    payload.attachment = attachments.map(({ name, content }) => ({ name, content }));
+  }
 
   if (replyTo && replyTo.email) {
     payload.replyTo = {

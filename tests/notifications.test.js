@@ -313,3 +313,102 @@ test('reminders skip empty ₱0 rows and follow due dates', () => {
   ];
   assert.deepEqual(periodsByDueDate(schedule), [2, 0, 1]);
 });
+
+// ---- Email with the notice (e.g. the family's contract), to the account's own address ----
+const { isDeliverableEmail, webLink } = require('../src/services/notification.service');
+const { readAttachment } = require('../src/controllers/notification.controller');
+
+const PDF = Buffer.from('%PDF-1.4\n% sample contract\n').toString('base64');
+
+function emailNotifier(users, sendEmail) {
+  return createNotifier({
+    db: fakeFirestore(users),
+    FieldValue,
+    sendPush: async (messages) => ({ sent: messages.length, invalidTokens: [] }),
+    sendEmail,
+    webUrl: 'https://saint-andrew.vercel.app',
+  });
+}
+
+test('emails the account address with the PDF and a link to it on the website', async () => {
+  const sent = [];
+  const notify = emailNotifier({ u1: { email: 'maria@example.com', fullName: 'Maria Santos' } }, async (mail) => sent.push(mail));
+  const result = await notify({
+    userId: 'u1',
+    type: 'booking_status',
+    title: 'Your Funeral Contract is ready',
+    body: 'View it in the app. <b>Bring</b> nothing.',
+    route: '/contract/case1',
+    email: true,
+    attachment: { name: 'Funeral-Contract.pdf', content: PDF },
+  });
+  assert.equal(result.emailed, true);
+  assert.equal(result.saved, true);
+  assert.equal('user' in result, false, 'the account is never returned');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, 'maria@example.com');
+  assert.equal(sent[0].subject, 'Your Funeral Contract is ready');
+  assert.deepEqual(sent[0].attachments, [{ name: 'Funeral-Contract.pdf', content: PDF }]);
+  assert.match(sent[0].html, /href="https:\/\/saint-andrew\.vercel\.app\/contract\/case1"/);
+  assert.match(sent[0].html, /&lt;b&gt;Bring&lt;\/b&gt;/);
+});
+
+test('never emails a mobile-number account, an unverified or suspended one, or without being asked', async () => {
+  const sent = [];
+  const users = {
+    phone: { email: 'p.3f9a@phone.standrew.invalid' },
+    none: {},
+    inactive: { email: 'a@example.com', status: 'inactive' },
+    suspended: { email: 'b@example.com', status: 'suspended' },
+    asked: { email: 'c@example.com' },
+  };
+  const notify = emailNotifier(users, async (mail) => sent.push(mail));
+  const base = { type: 'booking_status', title: 't', body: 'b', email: true };
+  assert.deepEqual(pick(await notify({ ...base, userId: 'phone' })), { emailed: false, emailReason: 'no-email' });
+  assert.deepEqual(pick(await notify({ ...base, userId: 'none' })), { emailed: false, emailReason: 'no-email' });
+  assert.deepEqual(pick(await notify({ ...base, userId: 'inactive' })), { emailed: false, emailReason: 'user-inactive' });
+  assert.deepEqual(pick(await notify({ ...base, userId: 'suspended' })), { emailed: false, emailReason: 'user-suspended' });
+  assert.deepEqual(pick(await notify({ ...base, userId: 'walk-in' })), { emailed: false, emailReason: 'user-not-found' });
+  // Not asked: no email, and the result looks exactly as before
+  const plain = await notify({ ...base, userId: 'asked', email: false });
+  assert.equal('emailed' in plain, false);
+  assert.equal(sent.length, 0);
+});
+
+test('a failed email never loses the notice', async () => {
+  const warn = console.warn;
+  console.warn = () => {};
+  const notify = emailNotifier({ u1: { email: 'maria@example.com' } }, async () => {
+    throw new Error('Brevo down');
+  });
+  const result = await notify({ userId: 'u1', type: 'booking_status', title: 't', body: 'b', email: true });
+  console.warn = warn;
+  assert.equal(result.saved, true);
+  assert.deepEqual(pick(result), { emailed: false, emailReason: 'email-failed' });
+});
+
+test('recognizes addresses that can receive mail, and builds website links', () => {
+  assert.equal(isDeliverableEmail('maria@example.com'), true);
+  assert.equal(isDeliverableEmail('p.1@phone.standrew.invalid'), false);
+  assert.equal(isDeliverableEmail(''), false);
+  assert.equal(isDeliverableEmail(undefined), false);
+  assert.equal(webLink('https://x.app', '/(app)/arrangements'), 'https://x.app/arrangements');
+  assert.equal(webLink('https://x.app', '/contract/abc'), 'https://x.app/contract/abc');
+  assert.equal(webLink('', '/contract/abc'), '');
+});
+
+test('accepts only a real PDF within 2 MB as the attachment', () => {
+  assert.deepEqual(readAttachment(undefined), { attachment: null });
+  assert.deepEqual(readAttachment({ name: 'Funeral-Contract.pdf', content: PDF }).attachment, { name: 'Funeral-Contract.pdf', content: PDF });
+  assert.match(readAttachment({ name: 'x.exe', content: PDF }).error, /\.pdf/);
+  assert.match(readAttachment({ name: '../x.pdf', content: PDF }).error, /\.pdf/);
+  assert.match(readAttachment({ name: 'x.pdf', content: 'not base64!' }).error, /base64/);
+  assert.match(readAttachment({ name: 'x.pdf', content: Buffer.from('<html>').toString('base64') }).error, /PDF/);
+  const big = Buffer.concat([Buffer.from('%PDF-'), Buffer.alloc(2 * 1024 * 1024)]).toString('base64');
+  assert.match(readAttachment({ name: 'x.pdf', content: big }).error, /too large/);
+});
+
+/** Just the email part of a result. */
+function pick({ emailed, emailReason }) {
+  return emailReason === undefined ? { emailed } : { emailed, emailReason };
+}

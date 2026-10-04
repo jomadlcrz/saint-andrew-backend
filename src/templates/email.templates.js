@@ -256,7 +256,59 @@ function getStaffAlertEmailTemplate({ items, adminUrl = '' }) {
   `.trim();
 }
 
+/**
+ * A notice to a family (the same words as their in-app notification), with a button to open it on
+ * the website. Used for their contract once staff accept the arrangement.
+ */
+function getFamilyNoticeEmailTemplate({ title, body, link, attachmentNote = '' }) {
+  const safeTitle = escapeHtml(title);
+  const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br>');
+  const safeLink = escapeHtml(link);
+  const safeNote = escapeHtml(attachmentNote);
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeTitle}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F3EFE8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F3EFE8; padding: 30px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; border: 1px solid #E2E0D8; overflow: hidden;">
+          <tr>
+            <td style="background-color: #1F3A5F; padding: 24px 30px;">
+              <h2 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">St. Andrew Funeral Home</h2>
+              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">Poblacion, Sual, Pangasinan · 0921-536-9147 / 0927-410-7716</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px; color: #2C4B66;">
+              <h3 style="margin: 0 0 12px 0; color: #152A45; font-size: 18px;">${safeTitle}</h3>
+              <p style="margin: 0 0 20px 0; color: #1F3A5F; font-size: 15px; line-height: 1.6;">${safeBody}</p>
+              ${safeLink ? `<p style="margin: 0 0 20px 0;"><a href="${safeLink}" style="display: inline-block; background-color: #1F3A5F; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 8px; font-size: 15px; font-weight: 600;">View it online</a></p>` : ''}
+              ${safeNote ? `<p style="margin: 0; color: #64748B; font-size: 13px; line-height: 1.5;">${safeNote}</p>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FBF9F5; padding: 16px 30px; border-top: 1px solid #E2E0D8; text-align: center; color: #64748B; font-size: 12px;">
+              You received this because you made an arrangement with St. Andrew Funeral Home. Questions? Chat with us in the app or call our office.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
 module.exports = {
+  getFamilyNoticeEmailTemplate,
   getSupportEmailTemplate,
   getOtpEmailTemplate,
   getResetLinkEmailTemplate,
