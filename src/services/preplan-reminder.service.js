@@ -101,7 +101,7 @@ async function sendPrePlanPaymentReminders() {
 
   let snapshot;
   try {
-    // No `isCompleted == false` filter: walk-ins and online bookings never set the field, and an
+    // No `isCompleted == false` filter: walk-ins and online requests never set the field, and an
     // equality filter skips documents without it. Paid periods are skipped below anyway.
     snapshot = await db
       .collection('pre_plans')

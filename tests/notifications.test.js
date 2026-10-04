@@ -37,7 +37,7 @@ test('builds one message per valid token with route data and the app channel', (
     title: 'Arrangement approved',
     body: 'Your arrangement was approved.',
     route: '/(app)/arrangements',
-    type: 'booking_status',
+    type: 'request_status',
     notificationId: 'n1',
   });
   assert.equal(messages.length, 2);
@@ -48,7 +48,7 @@ test('builds one message per valid token with route data and the app channel', (
     sound: NOTIFICATION_SOUND,
     channelId: ANDROID_CHANNEL_ID,
     priority: 'high',
-    data: { route: '/(app)/arrangements', type: 'booking_status', notificationId: 'n1' },
+    data: { route: '/(app)/arrangements', type: 'request_status', notificationId: 'n1' },
   });
 });
 
@@ -163,7 +163,7 @@ test('removes unregistered devices and survives push failures', async () => {
     FieldValue,
     sendPush: async () => ({ sent: 1, invalidTokens: [TOKEN_B] }),
   });
-  const result = await notify({ userId: 'u1', type: 'booking_status', title: 't', body: 'b' });
+  const result = await notify({ userId: 'u1', type: 'request_status', title: 't', body: 'b' });
   assert.equal(result.pushed, 1);
   assert.deepEqual(db.updates[0].patch, { pushTokens: { arrayRemove: [TOKEN_B] } });
 
@@ -176,7 +176,7 @@ test('removes unregistered devices and survives push failures', async () => {
   });
   const warn = console.warn;
   console.warn = () => {};
-  const failed = await failing({ userId: 'u1', type: 'booking_status', title: 't', body: 'b' });
+  const failed = await failing({ userId: 'u1', type: 'request_status', title: 't', body: 'b' });
   console.warn = warn;
   assert.deepEqual(failed, { saved: true, pushed: 0, reason: 'push-failed' });
 });
@@ -335,7 +335,7 @@ test('emails the account address with the PDF and a link to it on the website', 
   const notify = emailNotifier({ u1: { email: 'maria@example.com', fullName: 'Maria Santos' } }, async (mail) => sent.push(mail));
   const result = await notify({
     userId: 'u1',
-    type: 'booking_status',
+    type: 'request_status',
     title: 'Your Funeral Contract is ready',
     body: 'View it in the app. <b>Bring</b> nothing.',
     route: '/contract/case1',
@@ -363,7 +363,7 @@ test('never emails a mobile-number account, an unverified or suspended one, or w
     asked: { email: 'c@example.com' },
   };
   const notify = emailNotifier(users, async (mail) => sent.push(mail));
-  const base = { type: 'booking_status', title: 't', body: 'b', email: true };
+  const base = { type: 'request_status', title: 't', body: 'b', email: true };
   assert.deepEqual(pick(await notify({ ...base, userId: 'phone' })), { emailed: false, emailReason: 'no-email' });
   assert.deepEqual(pick(await notify({ ...base, userId: 'none' })), { emailed: false, emailReason: 'no-email' });
   assert.deepEqual(pick(await notify({ ...base, userId: 'inactive' })), { emailed: false, emailReason: 'user-inactive' });
@@ -381,7 +381,7 @@ test('a failed email never loses the notice', async () => {
   const notify = emailNotifier({ u1: { email: 'maria@example.com' } }, async () => {
     throw new Error('Brevo down');
   });
-  const result = await notify({ userId: 'u1', type: 'booking_status', title: 't', body: 'b', email: true });
+  const result = await notify({ userId: 'u1', type: 'request_status', title: 't', body: 'b', email: true });
   console.warn = warn;
   assert.equal(result.saved, true);
   assert.deepEqual(pick(result), { emailed: false, emailReason: 'email-failed' });

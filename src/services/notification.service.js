@@ -10,7 +10,7 @@ const pushService = require('./push.service');
 const brevoService = require('./brevo.service');
 const { getFamilyNoticeEmailTemplate } = require('../templates/email.templates');
 
-const NOTIFICATION_TYPES = ['chat_reply', 'booking_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial'];
+const NOTIFICATION_TYPES = ['chat_reply', 'request_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial'];
 
 /**
  * An address we can email: a real one. Accounts made with a mobile number sign in with an internal
@@ -80,7 +80,7 @@ function createNotifier({ db: firestore, FieldValue, sendPush, sendEmail, webUrl
   /**
    * @param {{ userId: string, type: string, title: string, body: string, route?: string, refId?: string,
    *   email?: boolean, attachment?: { name: string, content: string } | null }} input
-   *   refId: the booking/pre-plan this is about, so admin-web can show whether the family read it.
+   *   refId: the arrangement/pre-plan this is about, so admin-web can show whether the family read it.
    *   email: also email the account's address; attachment: a PDF (base64) to attach to it.
    * @returns {Promise<{ saved: boolean, pushed: number, reason?: string, emailed?: boolean, emailReason?: string }>}
    */

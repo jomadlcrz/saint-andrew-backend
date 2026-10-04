@@ -21,6 +21,13 @@ Both client frontends (`saint-andrew-admin-web` and `saint-andrew-mobile`) depen
 
 ## 2. Engineering Conventions & Coding Standards
 
+### No "book / booking / booked"
+A funeral arrangement is not an appointment, so these words are never used anywhere: UI copy, messages,
+emails/SMS, code names (types, functions, variables, files), comments, tests, Firestore values and docs.
+Say **arrangement**, **arrangement request**, **request** or **contract**; for St. Andrew Chapel's days
+say **in use**, **scheduled**, **taken** or **occupant**. Exceptions: the `BookOpen` icon from lucide,
+and real names of things (e.g. "Seaman's Book (SIRB)", "guestbook", "Registry Book", Facebook).
+
 ### 2.1 Layered Architecture Discipline
 Maintain strict separation between layers:
 - **Routes (`src/routes/`)**: Declare URL paths, HTTP methods, and attach controllers/middleware. No business logic in routes.

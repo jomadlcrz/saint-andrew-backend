@@ -8,7 +8,7 @@
  *   - show an old paid amount / balance (payments were recorded on the case only),
  *   - miss the "Claimed" mark after the plan holder was marked deceased.
  * Contracts & Billing, Funeral Plan Records and the family's app read the request, so this copies
- * those fields from the case. Walk-ins and online bookings share the case's id and are skipped.
+ * those fields from the case. Walk-ins and online requests share the case's id and are skipped.
  *
  * Usage (needs the same Firebase credentials as the server):
  *   node scripts/backfill-linked-contracts.js           # dry run: prints the plan

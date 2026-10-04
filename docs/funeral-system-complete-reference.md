@@ -38,7 +38,7 @@ flowchart TD
     AdminWeb -->|httpsCallable| Functions
 
     UserApp -->|Firebase JS / Native SDK| Auth
-    UserApp -->|onSnapshot / Bookings| Firestore
+    UserApp -->|onSnapshot / Arrangements| Firestore
     UserApp -->|Proof of Payment Uploads| Storage
     UserApp -->|HTTPS REST| RenderNode
     UserApp -->|httpsCallable| Functions
@@ -310,7 +310,7 @@ Base URL: `http://localhost:3000` (Local) / `https://<service-name>.onrender.com
 
 | Sidebar Item | Frontend Route | Purpose |
 |---|---|---|
-| **Dashboard** | `/dashboard` | Metrics overview (revenue, pending bookings, active services, task calendar) |
+| **Dashboard** | `/dashboard` | Metrics overview (revenue, pending arrangement requests, active services, task calendar) |
 | **Transactions** | `/transactions` | Filterable list of all customer contracts, payment tracking, balance SMS triggers |
 | **Walk-in Transaction** | `/walk-in` | Dedicated wizard for in-person clients to select inventory and generate contracts |
 | **Inventory Management**| `/inventory` | Stock levels, price editing, package inclusions, stock replenishment |
@@ -325,7 +325,7 @@ Base URL: `http://localhost:3000` (Local) / `https://<service-name>.onrender.com
 |---|---|---|
 | **Home / Landing** | `(tabs)/index` | Welcome banner, quick access to services, emergency hotline |
 | **Catalog & Packages**| `(tabs)/catalog` | Browse caskets, urns, complete packages, and floral arrangements |
-| **Arrangement Wizard** | `booking/wizard` | Step-by-step funeral plan builder (casket, service, dates, details) |
+| **Arrangement Wizard** | `arrangement` | Step-by-step funeral plan builder (casket, service, dates, details) |
 | **My Arrangements** | `(tabs)/orders` | Active and past service contracts, payment status, remaining balance |
 | **Payment Upload** | `orders/upload-proof` | Upload GCash receipt screenshot to Firebase Storage (cash is recorded by the office) |
 | **Support Chat** | `(tabs)/chat` | Direct messaging with funeral home staff |

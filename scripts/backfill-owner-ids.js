@@ -1,5 +1,5 @@
 /**
- * One-off backfill: give existing customer bookings an owner `userId`.
+ * One-off backfill: give existing customer arrangements an owner `userId`.
  *
  * The Firestore rules only let a family read `transactions` / `pre_plans` whose `userId` is
  * their uid. Records saved before that change may have no owner:
@@ -50,7 +50,7 @@ async function planOwnerBackfill({ db }) {
     usersByEmail.set(email, usersByEmail.has(email) ? null : userDoc.id);
   }
 
-  // Real owners by booking reference, from both sides of the mirror
+  // Real owners by request reference, from both sides of the mirror
   const ownerByReference = new Map();
   for (const d of transactionsSnap.docs) {
     const data = d.data();
