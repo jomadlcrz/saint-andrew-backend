@@ -14,6 +14,7 @@ const {
   resetPasswordLimiter,
   smsCodeLimiter,
   findAccountLimiter,
+  verifyEmailLimiter,
 } = require('../middleware/rate-limit.middleware');
 
 router.post('/send-otp-email', otpRequestLimiter, authController.sendOtpEmail);
@@ -21,6 +22,7 @@ router.post('/verify-otp', otpVerifyLimiter, authController.verifyOtp);
 router.post('/reset-password', resetPasswordLimiter, authController.resetPassword);
 router.post('/send-reset-link', resetLinkLimiter, authController.sendResetLink);
 router.post('/change-password', resetPasswordLimiter, verifyFirebaseAuth, authController.changePassword);
+router.post('/send-verification-email', verifyEmailLimiter, verifyFirebaseAuth, authController.sendVerificationEmail);
 
 // Accounts that use a mobile number instead of an email (SMS code)
 router.post('/send-otp-sms', smsCodeLimiter, phoneAccountController.sendOtpSms);

@@ -7,6 +7,7 @@ const { admin, isFirebaseInitialized } = require('../config/firebase.config');
 const otpService = require('../services/otp.service');
 const resetTokenService = require('../services/reset-token.service');
 const brevoService = require('../services/brevo.service');
+const { createVerifyEmailService } = require('../services/verify-email.service');
 const { getOtpEmailTemplate, getResetLinkEmailTemplate } = require('../templates/email.templates');
 const config = require('../config/env.config');
 const { passwordProblem, isCurrentPassword, SAME_PASSWORD_MESSAGE } = require('../utils/password-policy');
@@ -314,11 +315,37 @@ async function changePassword(req, res, next) {
   }
 }
 
+/**
+ * Emails the signed-in family the link to verify their sign-up email (St. Andrew branded, via Brevo).
+ * POST /send-verification-email
+ */
+async function sendVerificationEmail(req, res, next) {
+  try {
+    if (!isFirebaseInitialized || !admin) {
+      return res.status(503).json({ error: 'Authentication service is not available on the server.' });
+    }
+    if (!brevoService.isConfigured()) {
+      return res.status(503).json({ error: 'Email service is not configured on the backend.' });
+    }
+    const service = createVerifyEmailService({
+      getUser: (uid) => admin.auth().getUser(uid),
+      makeLink: (email) => admin.auth().generateEmailVerificationLink(email),
+      sendEmail: (message) => brevoService.sendTransactionalEmail(message),
+    });
+    const result = await service.send(req.user?.uid);
+    return res.status(200).json({ success: true, alreadyVerified: result === 'already-verified' });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    return next(err);
+  }
+}
+
 module.exports = {
   sendOtpEmail,
   verifyOtp,
   resetPassword,
   sendResetLink,
   changePassword,
+  sendVerificationEmail,
   RECENT_SIGN_IN_SECONDS,
 };

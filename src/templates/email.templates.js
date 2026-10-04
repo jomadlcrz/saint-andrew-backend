@@ -4,6 +4,43 @@
 
 const { escapeHtml } = require('../utils/sanitize.util');
 
+/** St. Andrew logo for email headers (hosted on Google Drive) */
+const LOGO_URL = 'https://lh3.googleusercontent.com/d/1c9jjuLr5Xf7aY0iLeQEjXHcyn8MTYawh';
+
+/**
+ * The navy header every email starts with: logo, name and a short line under it.
+ * Centered for family account emails; logo beside the name for notices and staff emails.
+ * @param {{ subtitle: string, centered?: boolean }} params (subtitle is trusted template text)
+ */
+function emailHeader({ subtitle, centered = false }) {
+  const logo = (size, extra) =>
+    `<img src="${LOGO_URL}" width="${size}" height="${size}" alt="St. Andrew Funeral Home" style="display: block; width: ${size}px; height: ${size}px; border-radius: 50%; background-color: #ffffff;${extra}">`;
+  if (centered) {
+    return `
+          <tr>
+            <td style="background-color: #1F3A5F; padding: 28px 32px; text-align: center;">
+              ${logo(72, ' margin: 0 auto 12px auto;')}
+              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">St. Andrew Funeral Home</h1>
+              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">${subtitle}</p>
+            </td>
+          </tr>`;
+  }
+  return `
+          <tr>
+            <td style="background-color: #1F3A5F; padding: 20px 30px;">
+              <table border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding-right: 14px; vertical-align: middle;">${logo(48, '')}</td>
+                  <td style="vertical-align: middle;">
+                    <h2 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600; letter-spacing: 0.5px;">St. Andrew Funeral Home</h2>
+                    <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">${subtitle}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
+}
+
 /**
  * Staff notification template for new customer support ticket
  */
@@ -25,13 +62,7 @@ function getSupportEmailTemplate({ name, email, message }) {
     <tr>
       <td align="center">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; border: 1px solid #E2E0D8; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-          <!-- Header -->
-          <tr>
-            <td style="background-color: #1F3A5F; padding: 24px 30px; text-align: left;">
-              <h2 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600; letter-spacing: 0.5px;">St. Andrew Funeral Home</h2>
-              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">Customer Support Desk</p>
-            </td>
-          </tr>
+          ${emailHeader({ subtitle: 'Customer Support Desk' })}
           <!-- Body -->
           <tr>
             <td style="padding: 30px; color: #2C4B66;">
@@ -86,13 +117,7 @@ function getOtpEmailTemplate({ otp, expiryMinutes = 15 }) {
     <tr>
       <td align="center">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 540px; background-color: #ffffff; border-radius: 12px; border: 1px solid #E2E0D8; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
-          <!-- Header -->
-          <tr>
-            <td style="background-color: #1F3A5F; padding: 28px 32px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">St. Andrew Funeral Home</h1>
-              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">Security & Account Verification</p>
-            </td>
-          </tr>
+          ${emailHeader({ subtitle: 'Security & Account Verification', centered: true })}
           <!-- Body -->
           <tr>
             <td style="padding: 36px 32px; text-align: center; color: #2C4B66;">
@@ -148,12 +173,7 @@ function getResetLinkEmailTemplate({ resetLink, expiryHours = 1 }) {
     <tr>
       <td align="center">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 540px; background-color: #ffffff; border-radius: 12px; border: 1px solid #E2E0D8; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
-          <tr>
-            <td style="background-color: #1F3A5F; padding: 28px 32px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">St. Andrew Funeral Home</h1>
-              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">Account Recovery</p>
-            </td>
-          </tr>
+          ${emailHeader({ subtitle: 'Account Recovery', centered: true })}
           <tr>
             <td style="padding: 36px 32px; text-align: center; color: #2C4B66;">
               <h2 style="margin: 0 0 12px 0; color: #152A45; font-size: 20px; font-weight: 600;">Reset Your Password</h2>
@@ -173,6 +193,59 @@ function getResetLinkEmailTemplate({ resetLink, expiryHours = 1 }) {
           <tr>
             <td style="background-color: #FBF9F5; padding: 18px 32px; border-top: 1px solid #E2E0D8; text-align: center; color: #64748B; font-size: 12px;">
               © ${new Date().getFullYear()} St. Andrew Funeral Home. All rights reserved.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Sign-up: confirm the family's email address (replaces Firebase's own verification email)
+ * @param {{ name?: string, verifyLink: string }} params
+ */
+function getVerifyEmailTemplate({ name, verifyLink }) {
+  const safeLink = escapeHtml(verifyLink);
+  const greeting = name && name.trim() ? `Hello ${escapeHtml(name.trim())},` : 'Hello,';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F3EFE8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F3EFE8; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 540px; background-color: #ffffff; border-radius: 12px; border: 1px solid #E2E0D8; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
+          ${emailHeader({ subtitle: 'Account Verification', centered: true })}
+          <tr>
+            <td style="padding: 36px 32px; text-align: center; color: #2C4B66;">
+              <h2 style="margin: 0 0 12px 0; color: #152A45; font-size: 20px; font-weight: 600;">Verify Your Email</h2>
+              <p style="margin: 0 0 8px 0; color: #64748B; font-size: 15px; line-height: 1.5;">${greeting}</p>
+              <p style="margin: 0 0 28px 0; color: #64748B; font-size: 15px; line-height: 1.5;">
+                Thank you for creating an account with St. Andrew Funeral Home. Please confirm your email address by clicking the button below:
+              </p>
+              <div style="margin: 28px 0;">
+                <a href="${safeLink}" target="_blank" style="background-color: #1F3A5F; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 15px; font-weight: 600; display: inline-block; letter-spacing: 0.3px; border: 1px solid #152A45;">
+                  Verify Email Address
+                </a>
+              </div>
+              <p style="margin: 24px 0 0 0; color: #64748B; font-size: 13px; line-height: 1.5;">
+                If you did not create this account, you may safely ignore this message.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FBF9F5; padding: 18px 32px; border-top: 1px solid #E2E0D8; text-align: center; color: #64748B; font-size: 12px;">
+              St. Andrew Funeral Home · Poblacion, Sual, Pangasinan
             </td>
           </tr>
         </table>
@@ -229,12 +302,7 @@ function getStaffAlertEmailTemplate({ items, adminUrl = '' }) {
     <tr>
       <td align="center">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; border: 1px solid #E2E0D8; overflow: hidden;">
-          <tr>
-            <td style="background-color: #1F3A5F; padding: 24px 30px;">
-              <h2 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">St. Andrew Funeral Home</h2>
-              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">From families, waiting for staff</p>
-            </td>
-          </tr>
+          ${emailHeader({ subtitle: 'From families, waiting for staff' })}
           <tr>
             <td style="padding: 24px 30px;">
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">${rows}
@@ -279,12 +347,7 @@ function getFamilyNoticeEmailTemplate({ title, body, link, attachmentNote = '' }
     <tr>
       <td align="center">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; border: 1px solid #E2E0D8; overflow: hidden;">
-          <tr>
-            <td style="background-color: #1F3A5F; padding: 24px 30px;">
-              <h2 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">St. Andrew Funeral Home</h2>
-              <p style="margin: 4px 0 0 0; color: #D8C3A5; font-size: 13px;">Poblacion, Sual, Pangasinan · 0921-536-9147 / 0927-410-7716</p>
-            </td>
-          </tr>
+          ${emailHeader({ subtitle: 'Poblacion, Sual, Pangasinan · 0921-536-9147 / 0927-410-7716' })}
           <tr>
             <td style="padding: 30px; color: #2C4B66;">
               <h3 style="margin: 0 0 12px 0; color: #152A45; font-size: 18px;">${safeTitle}</h3>
@@ -312,5 +375,6 @@ module.exports = {
   getSupportEmailTemplate,
   getOtpEmailTemplate,
   getResetLinkEmailTemplate,
+  getVerifyEmailTemplate,
   getStaffAlertEmailTemplate,
 };

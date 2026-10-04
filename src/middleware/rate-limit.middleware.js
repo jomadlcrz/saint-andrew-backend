@@ -38,6 +38,15 @@ const resetLinkLimiter = rateLimit({
   handler: jsonRateLimitHandler('Too many reset link requests. Please try again in 15 minutes.'),
 });
 
+// Sign-up verification email: a few sends and resends per 15 minutes.
+const verifyEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler('Too many verification emails. Please try again in 15 minutes.'),
+});
+
 // Password reset: bounds attempts to redeem a reset token against a wrong
 // or brute-forced value.
 const resetPasswordLimiter = rateLimit({
@@ -134,4 +143,5 @@ module.exports = {
   supportEmailLimiter,
   smsLimiter,
   smsCodeLimiter,
+  verifyEmailLimiter,
 };
