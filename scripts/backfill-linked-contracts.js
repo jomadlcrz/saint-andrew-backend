@@ -51,27 +51,45 @@ function planLinkedContractBackfill({ plans, contracts }) {
     const paid = Number(plan.data.amountPaid || 0);
 
     for (const contract of contractsByRef.get(ref) || []) {
-      if (contract.id === plan.id) continue; // same id: already kept in step
+      if (contract.id === plan.id) continue;
       const c = contract.data;
       const fields = {};
       const changes = [];
+        if (Number(c.amountPaid || 0) !== paid || Number(c.totalPrice || 0) !== total) {
+          fields.amountPaid = paid;
+          fields.totalPrice = total;
+          fields.balance = Math.max(0, total - paid);
+          fields.paymentStatus = paymentStatusFor(total, paid);
+          changes.push(`paid ${Number(c.amountPaid || 0)} → ${paid} of ${total}`);
+        }
+        const status = statusForCase(plan.data.requestStatus, c.status);
+        if (status) {
+          fields.status = status;
+          changes.push(`status pending → ${status}`);
+        }
+        if (plan.data.lifecycleStatus === 'Claimed' && c.lifecycleStatus !== 'Claimed') {
+          fields.lifecycleStatus = 'Claimed';
+          changes.push('claimed');
+        }
 
-      if (Number(c.amountPaid || 0) !== paid || Number(c.totalPrice || 0) !== total) {
-        fields.amountPaid = paid;
-        fields.totalPrice = total;
-        fields.balance = Math.max(0, total - paid);
-        fields.paymentStatus = paymentStatusFor(total, paid);
-        changes.push(`paid ${Number(c.amountPaid || 0)} → ${paid} of ${total}`);
+      // Synchronize paymentSchedule if present on the case
+      if (Array.isArray(plan.data.paymentSchedule) && plan.data.paymentSchedule.length > 0) {
+        const cSchedule = Array.isArray(c.paymentSchedule) ? c.paymentSchedule : [];
+        if (cSchedule.length === 0 || JSON.stringify(cSchedule) !== JSON.stringify(plan.data.paymentSchedule)) {
+          fields.paymentSchedule = plan.data.paymentSchedule;
+          changes.push(`paymentSchedule synchronized (${plan.data.paymentSchedule.length} period(s))`);
+        }
       }
-      const status = statusForCase(plan.data.requestStatus, c.status);
-      if (status) {
-        fields.status = status;
-        changes.push(`status pending → ${status}`);
+
+      // Synchronize additional embalming days & fees
+      if (typeof plan.data.embalmingAdditionalDays === 'number' && c.embalmingAdditionalDays !== plan.data.embalmingAdditionalDays) {
+        fields.embalmingAdditionalDays = plan.data.embalmingAdditionalDays;
+        if (typeof plan.data.additionalEmbalmingFee === 'number') {
+          fields.additionalEmbalmingFee = plan.data.additionalEmbalmingFee;
+        }
+        changes.push(`embalmingAdditionalDays ${c.embalmingAdditionalDays ?? 0} → ${plan.data.embalmingAdditionalDays}`);
       }
-      if (plan.data.lifecycleStatus === 'Claimed' && c.lifecycleStatus !== 'Claimed') {
-        fields.lifecycleStatus = 'Claimed';
-        changes.push('claimed');
-      }
+
       if (changes.length > 0) updates.push({ id: contract.id, planId: plan.id, fields, changes });
     }
   }
