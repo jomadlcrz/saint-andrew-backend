@@ -62,6 +62,23 @@ function needsDueDayNotice(period, now) {
 }
 
 /**
+ * Whether an unpaid period qualifies for an upcoming reminder sweep (within the reminder window).
+ * If the due date is already in the past (e.g. yesterday or earlier in Manila calendar time),
+ * no reminder should be sent.
+ */
+function qualifiesForUpcomingReminder(period, now, windowEnd) {
+  if (!period || period.status === 'Paid') return false;
+  if (amountOwed(period) <= 0) return false;
+  if (period.reminderSentAt) return false;
+  const dueDate = toDate(period.dueDate);
+  if (!dueDate) return false;
+  // If the due date is already in the past (e.g. yesterday or earlier in Manila time), no reminder is sent
+  if (manilaDay(dueDate) < manilaDay(now)) return false;
+  if (dueDate > windowEnd) return false;
+  return true;
+}
+
+/**
  * Which reminder channels still need to go out for a schedule period.
  * SMS applies when the plan has a valid phone, the in-app notification when it has a userId.
  */
@@ -148,13 +165,9 @@ async function sendPrePlanPaymentReminders() {
 
     for (const i of periodsByDueDate(schedule)) {
       const period = schedule[i];
-      if (!period || period.status === 'Paid') continue;
-      if (amountOwed(period) <= 0) continue; // Nothing owed (e.g. an empty ₱0 row)
-      if (period.reminderSentAt) continue; // Every channel already reminded for this period
+      if (!qualifiesForUpcomingReminder(period, now, windowEnd)) continue;
 
       const dueDate = toDate(period.dueDate);
-      if (!dueDate || dueDate > windowEnd) continue;
-
       const amountDue = Number(period.amountDue || 0) - Number(period.amountPaid || 0);
       const dueDateLabel = dueDate.toLocaleDateString('en-PH', {
         year: 'numeric',
@@ -296,6 +309,7 @@ module.exports = {
   pendingReminderChannels,
   applyReminderResult,
   needsDueDayNotice,
+  qualifiesForUpcomingReminder,
   paymentBreakdownRoute,
   amountOwed,
   periodsByDueDate,

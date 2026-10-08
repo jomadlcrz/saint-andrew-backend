@@ -189,6 +189,7 @@ const {
   amountOwed,
   periodsByDueDate,
   paymentBreakdownRoute,
+  qualifiesForUpcomingReminder,
 } = require('../src/services/preplan-reminder.service');
 const { notifyUserHandler } = require('../src/controllers/notification.controller');
 
@@ -312,6 +313,57 @@ test('reminders skip empty ₱0 rows and follow due dates', () => {
     { periodIndex: 3, dueDate: new Date('2026-09-28T00:00:00Z'), amountDue: 1000 },
   ];
   assert.deepEqual(periodsByDueDate(schedule), [2, 0, 1]);
+});
+
+test('due date already passed (e.g. Oct 7 when today is Oct 8) should not send reminder', () => {
+  // Now is Oct 8, 2026 09:00 AM Manila (01:00 UTC)
+  const now = new Date('2026-10-08T01:00:00Z');
+  const windowEnd = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // Oct 11
+
+  // Period due Oct 7 (yesterday in Manila)
+  const passedPeriod = {
+    periodIndex: 1,
+    status: 'Upcoming',
+    amountDue: 2000,
+    amountPaid: 0,
+    dueDate: new Date('2026-10-07T00:00:00Z'),
+  };
+  // Passed period must NOT qualify for an upcoming reminder sweep
+  assert.equal(qualifiesForUpcomingReminder(passedPeriod, now, windowEnd), false);
+  // Passed period also must NOT get due-day notice
+  assert.equal(needsDueDayNotice(passedPeriod, now), false);
+
+  // Period due Oct 8 (today)
+  const todayPeriod = {
+    periodIndex: 2,
+    status: 'Upcoming',
+    amountDue: 2000,
+    amountPaid: 0,
+    dueDate: new Date('2026-10-08T00:00:00Z'),
+  };
+  assert.equal(qualifiesForUpcomingReminder(todayPeriod, now, windowEnd), true);
+  assert.equal(needsDueDayNotice(todayPeriod, now), true);
+
+  // Period due Oct 10 (upcoming in 2 days, within 3-day window)
+  const upcomingPeriod = {
+    periodIndex: 3,
+    status: 'Upcoming',
+    amountDue: 2000,
+    amountPaid: 0,
+    dueDate: new Date('2026-10-10T00:00:00Z'),
+  };
+  assert.equal(qualifiesForUpcomingReminder(upcomingPeriod, now, windowEnd), true);
+  assert.equal(needsDueDayNotice(upcomingPeriod, now), false);
+
+  // Period due Oct 15 (future, outside 3-day window)
+  const futurePeriod = {
+    periodIndex: 4,
+    status: 'Upcoming',
+    amountDue: 2000,
+    amountPaid: 0,
+    dueDate: new Date('2026-10-15T00:00:00Z'),
+  };
+  assert.equal(qualifiesForUpcomingReminder(futurePeriod, now, windowEnd), false);
 });
 
 // ---- Email with the notice (e.g. the family's contract), to the account's own address ----
