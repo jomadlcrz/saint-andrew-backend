@@ -14,6 +14,7 @@ const notificationRoutes = require('./notification.routes');
 const accountRoutes = require('./account.routes');
 const arrangementRoutes = require('./arrangement.routes');
 const chapelRoutes = require('./chapel.routes');
+const settingsRoutes = require('./settings.routes');
 
 // Mount routes
 router.use('/', healthRoutes);
@@ -24,5 +25,6 @@ router.use('/', notificationRoutes);
 router.use('/', accountRoutes);
 router.use('/', arrangementRoutes);
 router.use('/', chapelRoutes);
+router.use('/', settingsRoutes);
 
 module.exports = router;
