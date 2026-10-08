@@ -97,8 +97,10 @@ function toSummary(match) {
           lastNight: data.wakeSchedule.lastNight || '',
           funeralDate: data.wakeSchedule.funeralDate || '',
           cemeteryName: data.wakeSchedule.cemeteryName || '',
+          isRepatriated: Boolean(data.wakeSchedule.isRepatriated ?? data.isRepatriated),
         }
       : undefined,
+    isRepatriated: Boolean(data.isRepatriated || data.wakeSchedule?.isRepatriated),
     createdAt: toIso(data.createdAt),
   };
 }

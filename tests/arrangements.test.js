@@ -88,6 +88,14 @@ function arrangementsFixture() {
         amountPaid: 10000,
         balance: 40000,
         proofOfPaymentUrl: 'data:image/jpeg;base64,secret',
+        isRepatriated: true,
+        wakeSchedule: {
+          startOfMourning: '2026-10-10',
+          lastNight: '2026-10-18',
+          funeralDate: '2026-10-19',
+          cemeteryName: 'Manila Memorial',
+          isRepatriated: true,
+        },
       },
       owned1: { referenceCode: 'SAFH-2002', userId: 'someone-else', clientPhone: '09181112222' },
       mirrorTxn: { referenceCode: 'PN-3003', userId: 'web-client', clientPhone: '09193334444' },
@@ -158,6 +166,9 @@ test('tracks an arrangement with reference code + matching phone, without contac
   assert.equal(summary.referenceCode, 'SAFH-1001');
   assert.equal(summary.deceasedName, 'Jose Santos');
   assert.equal(summary.balance, 40000);
+  assert.equal(summary.isRepatriated, true);
+  assert.equal(summary.wakeSchedule?.isRepatriated, true);
+  assert.equal(summary.wakeSchedule?.startOfMourning, '2026-10-10');
   for (const key of ['clientPhone', 'clientEmail', 'proofOfPaymentUrl', 'userId']) {
     assert.equal(key in summary, false, `${key} must not be exposed`);
   }
