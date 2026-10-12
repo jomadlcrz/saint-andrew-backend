@@ -14,33 +14,39 @@ The **Saint Andrew Backend** is a dedicated, stateless transactional microservic
 ```mermaid
 graph TB
     subgraph Clients["Authorized Clients"]
-        AdminWeb["saint-andrew-admin-web\n(React 19 Admin Portal)"]
-        MobileApp["saint-andrew-mobile\n(React Native Customer App)"]
+        AdminWeb["saint-andrew-admin-web<br/>(React 19 Admin Website)"]
+        UserWeb["saint-andrew-user-web<br/>(React 19 Client Website)"]
+        MobileApp["saint-andrew-user-mobile<br/>(React Native Client App)"]
     end
 
     subgraph BackendMicroservice["saint-andrew-backend (Express / Port 3000)"]
         Router["Express Router (src/routes/)"]
-        AuthMiddleware["Auth & CORS Middleware"]
-        Controllers["Controllers (src/controllers/)\nSMS · Email · Auth · Health"]
-        Services["Services (src/services/)\nSemaphore · Brevo · OTP"]
-        Templates["Templates (src/templates/)\nCalm Memorial HTML & SMS"]
+        AuthMiddleware["CORS, Rate-Limit & Firebase Auth Middleware"]
+        Controllers["Controllers (src/controllers/)<br/>Auth · Phone Account · Account · SMS · Email<br/>Notification · Arrangement · Chapel · Health"]
+        Services["Services (src/services/)<br/>Semaphore · Brevo · OTP · Phone Account · Push"]
+        Scheduler["node-cron jobs<br/>payment reminders 3 days before due date<br/>staff alert emails every 5 minutes"]
+        Templates["Templates (src/templates/)<br/>Calm Memorial HTML & SMS"]
     end
 
     subgraph ExternalGateways["Third-Party Cloud Gateways"]
-        SemaphoreGateway["Semaphore SMS API\n(PH Mobile Networks)"]
-        BrevoGateway["Brevo SMTP API\n(Transactional Emails)"]
-        FirebaseAdmin["Firebase Admin SDK\n(Firestore & Auth)"]
+        SemaphoreGateway["Semaphore SMS API v4<br/>(PH Mobile Networks)"]
+        BrevoGateway["Brevo API v3<br/>(Transactional Emails)"]
+        ExpoPush["Expo Push API<br/>(Mobile Notifications)"]
+        FirebaseAdmin["Firebase Admin SDK<br/>(Firestore & Auth)"]
     end
 
-    AdminWeb -->|HTTPS POST| Router
-    MobileApp -->|HTTPS POST| Router
+    AdminWeb -->|HTTPS| Router
+    UserWeb -->|HTTPS| Router
+    MobileApp -->|HTTPS| Router
     Router --> AuthMiddleware
     AuthMiddleware --> Controllers
     Controllers --> Services
     Services --> Templates
     Services --> SemaphoreGateway
     Services --> BrevoGateway
+    Services --> ExpoPush
     Services --> FirebaseAdmin
+    Scheduler --> Services
 ```
 
 ---

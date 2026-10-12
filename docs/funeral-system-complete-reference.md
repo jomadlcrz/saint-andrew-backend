@@ -15,8 +15,9 @@ The objective is to modernize the frontends into **React.js (Admin Web)** and **
 ```mermaid
 flowchart TD
     subgraph Clients["Frontend Layer"]
-        AdminWeb["Admin Web (React + Vite + Tailwind)"]
-        UserApp["Customer App (React Native / Expo)"]
+        AdminWeb["Admin Website (React 19 + Vite 8 + Tailwind 4)"]
+        UserWeb["Client Website (React 19 + Vite 8)"]
+        UserApp["Client Mobile App (React Native 0.86 / Expo SDK 57)"]
     end
 
     subgraph FirebaseBackend["Firebase (saint-andrew-funeral-home)"]
@@ -25,26 +26,33 @@ flowchart TD
         Storage["Firebase Storage"]
     end
 
-    subgraph ExpressBackend["SMS & Email Microservice (saint-andrew-backend/)"]
-        RenderNode["Modular Node/Express Server (Port 3000 / Render)"]
+    subgraph ExpressBackend["Backend Service (saint-andrew-backend/)"]
+        RenderNode["Modular Node/Express Server (Port 3000 / Render)<br/>REST API + node-cron jobs"]
         Semaphore["Semaphore API (SMS)"]
         Brevo["Brevo API (Email / OTP)"]
+        ExpoPush["Expo Push API"]
     end
 
-    AdminWeb -->|Firebase Web SDK v10| Auth
+    AdminWeb -->|Firebase JS SDK v12| Auth
     AdminWeb -->|onSnapshot / Transactions| Firestore
     AdminWeb -->|Storage Uploads| Storage
     AdminWeb -->|HTTPS REST| RenderNode
-    AdminWeb -->|httpsCallable| Functions
 
-    UserApp -->|Firebase JS / Native SDK| Auth
+    UserWeb -->|Firebase JS SDK v12| Auth
+    UserWeb -->|onSnapshot / Arrangements| Firestore
+    UserWeb -->|Proof of Payment Uploads| Storage
+    UserWeb -->|HTTPS REST| RenderNode
+
+    UserApp -->|Firebase JS SDK v12| Auth
     UserApp -->|onSnapshot / Arrangements| Firestore
     UserApp -->|Proof of Payment Uploads| Storage
     UserApp -->|HTTPS REST| RenderNode
-    UserApp -->|httpsCallable| Functions
 
+    RenderNode -->|Firebase Admin SDK| Firestore
     RenderNode --> Semaphore
     RenderNode --> Brevo
+    RenderNode --> ExpoPush
+    ExpoPush -.->|push notifications| UserApp
 ```
 
 ---

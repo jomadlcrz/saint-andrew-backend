@@ -1,26 +1,31 @@
 # Production Deployment Guide: St. Andrew Funeral Home
 
-This guide covers deploying each of the **3 standalone repositories**:
+This guide covers deploying each of the **4 standalone repositories**:
 
 ```mermaid
 flowchart TD
-    subgraph Repos["3 Standalone Repositories"]
-        R1["saint-andrew-backend\n(Git Repo)"]
-        R2["saint-andrew-admin-web\n(Git Repo)"]
-        R3["saint-andrew-mobile\n(Git Repo)"]
+    subgraph Repos["4 Standalone Repositories"]
+        R1["saint-andrew-backend<br/>(Git Repo)"]
+        R2["saint-andrew-admin-web<br/>(Git Repo)"]
+        R3["saint-andrew-user-web<br/>(Git Repo)"]
+        R4["saint-andrew-user-mobile<br/>(Git Repo)"]
     end
 
     subgraph CloudHosts["Independent Cloud Deployments"]
-        Render["Render Web Service\n(SMS, Email, OTP API)"]
-        Vercel["Vercel or Firebase Hosting\n(Admin Web Console)"]
-        EAS["Expo EAS Build\n(Android APK / iOS)"]
-        Firestore["Cloud Firestore Rules\n(saint-andrew-funeral-home)"]
+        Render["Render Web Service<br/>(SMS, Email, OTP API, cron jobs)"]
+        Actions["GitHub Actions<br/>(daily encrypted Firestore backup)"]
+        VercelAdmin["Vercel<br/>(Admin Website)"]
+        VercelUser["Vercel<br/>(Client Website)"]
+        Firestore["Cloud Firestore Rules<br/>(saint-andrew-funeral-home)"]
+        EAS["Expo EAS Build<br/>(Android APK)"]
     end
 
     R1 -->|"Git push (render.yaml)"| Render
-    R2 -->|"Git push (vercel.json)"| Vercel
-    R2 -->|"firebase deploy --only hosting,firestore:rules"| Firestore
-    R3 -->|"npx eas build"| EAS
+    R1 -->|"firestore-backup.yml schedule"| Actions
+    R2 -->|"Git push (vercel.json)"| VercelAdmin
+    R2 -->|"firebase deploy --only firestore:rules"| Firestore
+    R3 -->|"Git push (vercel.json)"| VercelUser
+    R4 -->|"eas build -p android"| EAS
 ```
 
 ---
