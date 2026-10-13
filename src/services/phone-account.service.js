@@ -171,7 +171,6 @@ function createPhoneAccounts({ db, auth, otp, resetTokens, sms, lookup, now = ()
           middleName: String(middleName || '').trim(),
           lastName: last,
           suffix: String(suffix || '').trim(),
-          fullName,
           email: '',
           loginEmail,
           phone,

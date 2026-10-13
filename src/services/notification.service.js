@@ -9,6 +9,7 @@ const config = require('../config/env.config');
 const pushService = require('./push.service');
 const brevoService = require('./brevo.service');
 const { getFamilyNoticeEmailTemplate } = require('../templates/email.templates');
+const { fullNameFrom } = require('../utils/person-name.util');
 
 const NOTIFICATION_TYPES = ['chat_reply', 'request_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial'];
 
@@ -60,7 +61,7 @@ function createNotifier({ db: firestore, FieldValue, sendPush, sendEmail, webUrl
     try {
       await sendEmail({
         to: user.email.trim(),
-        name: typeof user.fullName === 'string' ? user.fullName : '',
+        name: fullNameFrom(user),
         subject: title,
         html: getFamilyNoticeEmailTemplate({
           title,
