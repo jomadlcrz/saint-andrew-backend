@@ -11,7 +11,13 @@ const brevoService = require('./brevo.service');
 const { getFamilyNoticeEmailTemplate } = require('../templates/email.templates');
 const { fullNameFrom } = require('../utils/person-name.util');
 
-const NOTIFICATION_TYPES = ['chat_reply', 'request_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial'];
+const NOTIFICATION_TYPES = ['chat_reply', 'request_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial', 'account_status'];
+
+/**
+ * Telling someone their own account was suspended (and why) must reach them even though it is
+ * suspended; every other notice to a suspended or unverified account stays in the app only.
+ */
+const reachesBlockedAccount = (type) => type === 'account_status';
 
 /**
  * An address we can email: a real one. Accounts made with a mobile number sign in with an internal
@@ -54,8 +60,8 @@ function createNotifier({ db: firestore, FieldValue, sendPush, sendEmail, webUrl
    * chooses), with an optional PDF. Accounts without a real address (signed up with a mobile
    * number) get no email; the result says why.
    */
-  async function emailUser(user, { title, body, route, attachment }) {
-    if (user.status === 'inactive' || user.status === 'suspended') return { emailed: false, emailReason: `user-${user.status}` };
+  async function emailUser(user, { type, title, body, route, attachment }) {
+    if ((user.status === 'inactive' || user.status === 'suspended') && !reachesBlockedAccount(type)) return { emailed: false, emailReason: `user-${user.status}` };
     if (!isDeliverableEmail(user.email)) return { emailed: false, emailReason: 'no-email' };
     if (!sendEmail) return { emailed: false, emailReason: 'email-unavailable' };
     try {
@@ -88,7 +94,7 @@ function createNotifier({ db: firestore, FieldValue, sendPush, sendEmail, webUrl
   return async function notifyUser({ userId, type, title, body, route = '', refId = '', email = false, attachment = null }) {
     const result = await notifyAndPush({ userId, type, title, body, route, refId });
     if (!email || !result.user) return withoutUser(result, email);
-    return { ...withoutUser(result, false), ...(await emailUser(result.user, { title, body, route, attachment })) };
+    return { ...withoutUser(result, false), ...(await emailUser(result.user, { type, title, body, route, attachment })) };
   };
 
   /** The result without the account it was read from (kept only to email it). */
@@ -115,7 +121,7 @@ function createNotifier({ db: firestore, FieldValue, sendPush, sendEmail, webUrl
     });
 
     const user = userSnap.data() || {};
-    if (user.status === 'inactive' || user.status === 'suspended') {
+    if ((user.status === 'inactive' || user.status === 'suspended') && !reachesBlockedAccount(type)) {
       return { saved: true, pushed: 0, reason: `user-${user.status}`, user };
     }
     const tokens = Array.isArray(user.pushTokens) ? user.pushTokens : [];

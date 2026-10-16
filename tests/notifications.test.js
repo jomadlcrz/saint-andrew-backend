@@ -427,6 +427,19 @@ test('never emails a mobile-number account, an unverified or suspended one, or w
   assert.equal(sent.length, 0);
 });
 
+test('tells a suspended account why, by push and email (only that notice)', async () => {
+  const sent = [];
+  const notify = emailNotifier({ s1: { email: 'b@example.com', status: 'suspended', pushTokens: ['ExponentPushToken[abc]'] } }, async (mail) => sent.push(mail));
+  const told = await notify({ userId: 's1', type: 'account_status', title: 'Your account was suspended', body: 'Reason: spam', email: true });
+  assert.equal(told.emailed, true);
+  assert.equal(told.pushed, 1);
+  assert.equal(sent[0].subject, 'Your account was suspended');
+  // Anything else still stays in the app
+  const other = await notify({ userId: 's1', type: 'request_status', title: 't', body: 'b', email: true });
+  assert.equal(other.pushed, 0);
+  assert.equal(other.emailReason, 'user-suspended');
+});
+
 test('a failed email never loses the notice', async () => {
   const warn = console.warn;
   console.warn = () => {};
