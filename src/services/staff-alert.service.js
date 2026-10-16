@@ -95,6 +95,35 @@ function pickupAlert(data, now = Date.now()) {
   };
 }
 
+/**
+ * A Stock List item at or below its reorder level, or out (Available = On hand − Reserved − At
+ * wake), once per level: it alerts again only after it was restocked and dropped again, or ran
+ * out. `clear`: it is back in stock, so its last alert is forgotten. Pure: `now` in ms.
+ * @returns {{ alert: { kind: 'stock', at: number, title: string, detail: string, level: 'low'|'out' } | null, clear: boolean }}
+ */
+function stockAlert(data, now = Date.now()) {
+  const sent = (data.staffAlerts || {}).stockLevel || '';
+  if (data.archived === true) return { alert: null, clear: false };
+  const num = (v) => Math.max(0, Math.floor(Number(v) || 0));
+  const available = num(data.onHand) - num(data.reserved) - num(data.atWake);
+  const reorderAt = num(data.reorderAt);
+  const level = available <= 0 ? 'out' : available <= reorderAt ? 'low' : '';
+  if (!level) return { alert: null, clear: !!sent };
+  if (sent === level) return { alert: null, clear: false };
+  const name = text(data.name, 'Stock item');
+  const unit = text(data.unit, 'pcs');
+  return {
+    alert: {
+      kind: 'stock',
+      at: millis(data.updatedAt) || now,
+      level,
+      title: `${level === 'out' ? 'Out of stock' : 'Low stock'}: ${name}`,
+      detail: `${Math.max(0, available)} ${unit} available · reorder at ${reorderAt}${data.kind === 'reusable' ? ' · reusable (lent to wakes)' : ''}`,
+    },
+    clear: false,
+  };
+}
+
 /** Where alerts go: STAFF_ALERT_EMAILS (comma-separated), else the support inbox. */
 function staffRecipients() {
   const list = (process.env.STAFF_ALERT_EMAILS || '')
@@ -117,6 +146,15 @@ async function sendStaffAlerts() {
     snap.docs.forEach((doc) => {
       pendingAlerts(doc.data()).forEach((alert) => found.push({ ...alert, id: doc.id, ref: doc.ref }));
     });
+    const stock = await db.collection('stock_items').get();
+    const backInStock = [];
+    stock.docs.forEach((doc) => {
+      const { alert, clear } = stockAlert(doc.data());
+      if (alert) found.push({ ...alert, id: doc.id, ref: doc.ref, stamp: { 'staffAlerts.stockLevel': alert.level } });
+      if (clear) backInStock.push(doc.ref);
+    });
+    // Restocked: forget the last alert, so the next shortage is emailed again
+    await Promise.all(backInStock.map((ref) => ref.update({ 'staffAlerts.stockLevel': admin.firestore.FieldValue.delete() })));
     const pickups = await db.collection('pickups').where('status', '==', 'requested').get();
     pickups.docs.forEach((doc) => {
       const alert = pickupAlert(doc.data());
@@ -139,7 +177,7 @@ async function sendStaffAlerts() {
     // Stamp only after the email went out, so a failed send is retried next sweep
     await Promise.all(
       found.map((alert) =>
-        alert.ref.update({ [`staffAlerts.${alert.kind}`]: alert.at, 'staffAlerts.emailedAt': admin.firestore.FieldValue.serverTimestamp() })
+        alert.ref.update({ ...(alert.stamp || { [`staffAlerts.${alert.kind}`]: alert.at }), 'staffAlerts.emailedAt': admin.firestore.FieldValue.serverTimestamp() })
       )
     );
     console.log(`📧 [Staff Alerts] Emailed staff about ${found.length} item(s).`);
@@ -164,6 +202,7 @@ function initializeStaffAlertCron() {
 module.exports = {
   pendingAlerts,
   pickupAlert,
+  stockAlert,
   deceasedNameOf,
   staffRecipients,
   sendStaffAlerts,

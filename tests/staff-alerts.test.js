@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { pendingAlerts, pickupAlert, deceasedNameOf } = require('../src/services/staff-alert.service');
+const { pendingAlerts, pickupAlert, stockAlert, deceasedNameOf } = require('../src/services/staff-alert.service');
 const { getStaffAlertEmailTemplate } = require('../src/templates/email.templates');
 
 const at = (iso) => ({ toMillis: () => Date.parse(iso) });
@@ -62,4 +62,18 @@ test('emails staff once about a pickup still without a team after 10 minutes', (
   assert.equal(pickupAlert({ ...data, staffAlerts: { pickup: alert.at } }, Date.parse('2026-10-16T02:00:00Z')), null);
   assert.equal(pickupAlert({ ...data, status: 'assigned' }, Date.parse('2026-10-16T02:00:00Z')), null);
   assert.match(getStaffAlertEmailTemplate({ items: [{ ...alert, id: 'p1' }] }), /Pickup waiting for a team/);
+});
+
+test('emails staff when an item gets low, again when it runs out, and again after a restock', () => {
+  const chairs = { name: 'Chairs', unit: 'pcs', kind: 'reusable', onHand: 100, reserved: 30, atWake: 60, reorderAt: 30 };
+  const low = stockAlert(chairs).alert;
+  assert.equal(low.title, 'Low stock: Chairs');
+  assert.equal(low.detail, '10 pcs available · reorder at 30 · reusable (lent to wakes)');
+  // Already emailed about it being low: quiet until it runs out
+  assert.equal(stockAlert({ ...chairs, staffAlerts: { stockLevel: 'low' } }).alert, null);
+  assert.equal(stockAlert({ ...chairs, atWake: 70, staffAlerts: { stockLevel: 'low' } }).alert.title, 'Out of stock: Chairs');
+  // Restocked: the last alert is forgotten
+  assert.deepEqual(stockAlert({ ...chairs, onHand: 200, staffAlerts: { stockLevel: 'low' } }), { alert: null, clear: true });
+  assert.deepEqual(stockAlert({ ...chairs, archived: true }), { alert: null, clear: false });
+  assert.match(getStaffAlertEmailTemplate({ items: [{ ...low, id: 'wake-chairs' }] }), /Restock needed/);
 });
