@@ -262,7 +262,7 @@ function getVerifyEmailTemplate({ name, verifyLink }) {
  * @param {{ items: { kind: string, title: string, detail: string, at: number, id: string }[], adminUrl?: string }} params
  */
 function getStaffAlertEmailTemplate({ items, adminUrl = '' }) {
-  const KIND_LABEL = { request: 'New request', receipt: 'Receipt to check', schedule: 'Burial change request' };
+  const KIND_LABEL = { request: 'New request', receipt: 'Receipt to check', schedule: 'Burial change request', pickup: 'Pickup waiting for a team' };
   const when = (ms) =>
     new Date(ms).toLocaleString('en-US', {
       timeZone: 'Asia/Manila',

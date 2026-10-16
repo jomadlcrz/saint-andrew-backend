@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { pendingAlerts, deceasedNameOf } = require('../src/services/staff-alert.service');
+const { pendingAlerts, pickupAlert, deceasedNameOf } = require('../src/services/staff-alert.service');
 const { getStaffAlertEmailTemplate } = require('../src/templates/email.templates');
 
 const at = (iso) => ({ toMillis: () => Date.parse(iso) });
@@ -49,4 +49,17 @@ test('email lists each item with its Philippine date and time, escaped', () => {
   assert.match(html, /&lt;Juan&gt;/);
   assert.match(html, /Sep 28, 2026, 3:45 PM/);
   assert.match(html, /https:\/\/admin\.example\.com/);
+});
+
+test('emails staff once about a pickup still without a team after 10 minutes', () => {
+  const data = { status: 'requested', createdAt: at('2026-10-16T01:00:00Z'), deceasedName: 'Juan Dela Cruz', pickupAddress: 'Region 1 Medical Center', contactPhone: '09171234567' };
+  // The bell chimes at once; email only if no one has assigned a team for 10 minutes
+  assert.equal(pickupAlert(data, Date.parse('2026-10-16T01:05:00Z')), null);
+  const alert = pickupAlert(data, Date.parse('2026-10-16T01:12:00Z'));
+  assert.equal(alert.kind, 'pickup');
+  assert.equal(alert.title, 'Pickup needs a team: Juan Dela Cruz');
+  assert.match(alert.detail, /Region 1 Medical Center · 09171234567 · waiting 12 min/);
+  assert.equal(pickupAlert({ ...data, staffAlerts: { pickup: alert.at } }, Date.parse('2026-10-16T02:00:00Z')), null);
+  assert.equal(pickupAlert({ ...data, status: 'assigned' }, Date.parse('2026-10-16T02:00:00Z')), null);
+  assert.match(getStaffAlertEmailTemplate({ items: [{ ...alert, id: 'p1' }] }), /Pickup waiting for a team/);
 });

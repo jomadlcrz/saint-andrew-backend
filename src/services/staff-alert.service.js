@@ -74,6 +74,27 @@ function pendingAlerts(data) {
   return alerts;
 }
 
+/** How long a pickup may wait for its team before staff are emailed (the bell chimes at once). */
+const PICKUP_WAIT_MS = 10 * 60_000;
+
+/**
+ * A pickup still without a team after PICKUP_WAIT_MS (a family may be waiting at the hospital),
+ * once per pickup. Pure: `now` in ms.
+ * @returns {{ kind: 'pickup', at: number, title: string, detail: string } | null}
+ */
+function pickupAlert(data, now = Date.now()) {
+  const createdAt = millis(data.createdAt);
+  if (data.status !== 'requested' || !createdAt || now - createdAt < PICKUP_WAIT_MS) return null;
+  if ((data.staffAlerts || {}).pickup === createdAt) return null;
+  const minutes = Math.round((now - createdAt) / 60_000);
+  return {
+    kind: 'pickup',
+    at: createdAt,
+    title: `Pickup needs a team: ${text(data.deceasedName, 'Deceased')}`,
+    detail: `${text(data.pickupAddress, 'Pickup location not given')}${text(data.contactPhone) ? ` · ${text(data.contactPhone)}` : ''} · waiting ${minutes} min`,
+  };
+}
+
 /** Where alerts go: STAFF_ALERT_EMAILS (comma-separated), else the support inbox. */
 function staffRecipients() {
   const list = (process.env.STAFF_ALERT_EMAILS || '')
@@ -95,6 +116,11 @@ async function sendStaffAlerts() {
     const found = [];
     snap.docs.forEach((doc) => {
       pendingAlerts(doc.data()).forEach((alert) => found.push({ ...alert, id: doc.id, ref: doc.ref }));
+    });
+    const pickups = await db.collection('pickups').where('status', '==', 'requested').get();
+    pickups.docs.forEach((doc) => {
+      const alert = pickupAlert(doc.data());
+      if (alert) found.push({ ...alert, id: doc.id, ref: doc.ref });
     });
     if (found.length === 0) return { sent: 0 };
 
@@ -137,6 +163,7 @@ function initializeStaffAlertCron() {
 
 module.exports = {
   pendingAlerts,
+  pickupAlert,
   deceasedNameOf,
   staffRecipients,
   sendStaffAlerts,
