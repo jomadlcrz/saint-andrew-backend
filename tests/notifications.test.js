@@ -477,3 +477,8 @@ test('accepts only a real PDF within 2 MB as the attachment', () => {
 function pick({ emailed, emailReason }) {
   return emailReason === undefined ? { emailed } : { emailed, emailReason };
 }
+
+test('staff can tell a family their memorial slideshow was hidden or restored', () => {
+  const { NOTIFICATION_TYPES } = require('../src/services/notification.service');
+  assert.ok(NOTIFICATION_TYPES.includes('memorial_status'));
+});

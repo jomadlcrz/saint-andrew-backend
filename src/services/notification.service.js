@@ -11,7 +11,7 @@ const brevoService = require('./brevo.service');
 const { getFamilyNoticeEmailTemplate } = require('../templates/email.templates');
 const { fullNameFrom } = require('../utils/person-name.util');
 
-const NOTIFICATION_TYPES = ['chat_reply', 'request_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial', 'account_status'];
+const NOTIFICATION_TYPES = ['chat_reply', 'request_status', 'preplan_status', 'payment', 'payment_reminder', 'testimonial', 'account_status', 'memorial_status'];
 
 /**
  * Telling someone their own account was suspended (and why) must reach them even though it is
