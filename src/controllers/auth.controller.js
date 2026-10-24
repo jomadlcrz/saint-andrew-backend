@@ -3,7 +3,7 @@
  * Handles OTP dispatch, OTP verification, and password reset link generation.
  */
 
-const { admin, isFirebaseInitialized } = require('../config/firebase.config');
+const { admin, db, isFirebaseInitialized } = require('../config/firebase.config');
 const otpService = require('../services/otp.service');
 const resetTokenService = require('../services/reset-token.service');
 const brevoService = require('../services/brevo.service');
@@ -340,6 +340,44 @@ async function sendVerificationEmail(req, res, next) {
   }
 }
 
+/** Sends a confirmation code before a phone account can use an email for contact. */
+async function requestContactEmailConfirmation(req, res, next) {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const uid = req.user?.uid;
+    if (!uid) return res.status(401).json({ error: 'Please sign in again.' });
+    if (!EMAIL_REGEX.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+    if (!isFirebaseInitialized || !db) return res.status(503).json({ error: 'Email confirmation is not available right now.' });
+    if (!brevoService.isConfigured()) return res.status(503).json({ error: 'Email service is not configured on the backend.' });
+    const otp = otpService.generateOtp();
+    await otpService.storeOtp(`contact-email:${uid}:${email}`, otp);
+    await brevoService.sendTransactionalEmail({
+      to: email,
+      subject: 'Confirm your contact email - St. Andrew Funeral Home',
+      htmlContent: getOtpEmailTemplate({ otp, expiryMinutes: 15 }),
+      senderName: "St. Andrew's Funeral Home",
+    });
+    return res.status(201).json({ success: true, message: 'Confirmation code sent.' });
+  } catch (err) { return next(err); }
+}
+
+/** Confirms a contact-only email; it never changes the account's mobile-number sign-in. */
+async function confirmContactEmail(req, res, next) {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const otp = String(req.body?.otp || '').trim();
+    const uid = req.user?.uid;
+    if (!uid) return res.status(401).json({ error: 'Please sign in again.' });
+    if (!EMAIL_REGEX.test(email) || !/^\d{6}$/.test(otp)) return res.status(400).json({ error: 'Enter a valid email address and 6-digit code.' });
+    if (!isFirebaseInitialized || !db) return res.status(503).json({ error: 'Email confirmation is not available right now.' });
+    const result = await otpService.verifyOtp(`contact-email:${uid}:${email}`, otp);
+    if (!result.valid) return res.status(400).json({ error: result.reason || 'Invalid confirmation code.' });
+    await db.collection('users').doc(uid).set({ contactEmail: email, contactEmailVerified: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await otpService.clearOtp(`contact-email:${uid}:${email}`);
+    return res.status(200).json({ success: true, contactEmail: email });
+  } catch (err) { return next(err); }
+}
+
 module.exports = {
   sendOtpEmail,
   verifyOtp,
@@ -347,5 +385,7 @@ module.exports = {
   sendResetLink,
   changePassword,
   sendVerificationEmail,
+  requestContactEmailConfirmation,
+  confirmContactEmail,
   RECENT_SIGN_IN_SECONDS,
 };

@@ -23,6 +23,8 @@ router.post('/reset-password', resetPasswordLimiter, authController.resetPasswor
 router.post('/send-reset-link', resetLinkLimiter, authController.sendResetLink);
 router.post('/change-password', resetPasswordLimiter, verifyFirebaseAuth, authController.changePassword);
 router.post('/send-verification-email', verifyEmailLimiter, verifyFirebaseAuth, authController.sendVerificationEmail);
+router.post('/request-contact-email-confirmation', verifyEmailLimiter, verifyFirebaseAuth, authController.requestContactEmailConfirmation);
+router.post('/confirm-contact-email', otpVerifyLimiter, verifyFirebaseAuth, authController.confirmContactEmail);
 
 // Accounts that use a mobile number instead of an email (SMS code)
 router.post('/send-otp-sms', smsCodeLimiter, phoneAccountController.sendOtpSms);
