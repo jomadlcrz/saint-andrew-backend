@@ -75,6 +75,12 @@ const SERVER_TS = '__server_ts__';
 
 function arrangementsFixture() {
   return createFakeFirestore({
+    users: {
+      'family-1': { phone: '09171234567' },
+      'family-2': { phone: '09193334444' },
+      'someone-else': { phone: '09181112222' },
+      'attacker-uid': { phone: '09999999999' },
+    },
     transactions: {
       walkin1: {
         referenceCode: 'SAFH-1001',
@@ -241,6 +247,24 @@ test('refuses to claim with a phone that is not on the record', async () => {
   await assert.rejects(
     service(firestore).claimArrangement({ code: 'SAFH-1001', phone: '09999999999', uid: 'family-1' }),
     { status: 404 }
+  );
+  assert.equal(firestore.writes.length, 0);
+});
+
+test('refuses to claim when caller account phone does not match arrangement phone', async () => {
+  const firestore = arrangementsFixture();
+  await assert.rejects(
+    service(firestore).claimArrangement({ code: 'SAFH-1001', phone: '09171234567', uid: 'attacker-uid' }),
+    { status: 403 }
+  );
+  assert.equal(firestore.writes.length, 0);
+});
+
+test('refuses to claim when caller user profile does not exist', async () => {
+  const firestore = arrangementsFixture();
+  await assert.rejects(
+    service(firestore).claimArrangement({ code: 'SAFH-1001', phone: '09171234567', uid: 'nonexistent-user' }),
+    { status: 403 }
   );
   assert.equal(firestore.writes.length, 0);
 });

@@ -5,6 +5,8 @@ services:
     buildCommand: npm install
     startCommand: npm start
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: SEMAPHORE_API_KEY
         sync: false
       - key: BREVO_API_KEY

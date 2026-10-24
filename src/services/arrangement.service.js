@@ -197,6 +197,16 @@ function createArrangementService({ db: firestore, serverTimestamp }) {
         throw httpError(409, 'This arrangement is already linked to another account. Please contact the funeral home.');
       }
 
+      // Check caller's account phone in users collection to ensure possession / ownership of the phone
+      const userDoc = await firestore.collection('users').doc(uid).get();
+      if (!userDoc.exists) {
+        throw httpError(403, 'A registered account profile is required to claim an arrangement.');
+      }
+      const userPhone = normalizePhilippinePhone(userDoc.data()?.phone);
+      if (!userPhone || !phoneMatches(match.data, userPhone)) {
+        throw httpError(403, 'Your account phone number does not match the contact number on file for this arrangement.');
+      }
+
       const targets = [match];
       const mirror = await findMirror(match);
       if (mirror && (isUnowned(mirror.data.userId) || mirror.data.userId === uid)) {

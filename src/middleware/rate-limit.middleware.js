@@ -86,7 +86,7 @@ const notifyLimiter = rateLimit({
 // so keep them tight enough that enumerating numbers isn't practical.
 const phoneLookupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   handler: jsonRateLimitHandler('Too many lookup attempts. Please try again in 15 minutes.'),

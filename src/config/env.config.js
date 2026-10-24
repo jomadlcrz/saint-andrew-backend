@@ -10,7 +10,9 @@ const dotenv = require('dotenv');
 // (e.g. for a local production dry-run), otherwise .env. Render's own
 // dashboard env vars are still the actual source of truth at deploy time,
 // since this file isn't present on Render's filesystem (it's gitignored).
-const NODE_ENV = process.env.NODE_ENV || 'development';
+// Default to production when unset to fail closed against dev bypass in deployed environments
+const NODE_ENV = process.env.NODE_ENV || 'production';
+const ALLOW_DEV_AUTH_BYPASS = process.env.ALLOW_DEV_AUTH_BYPASS === 'true';
 const envFile = NODE_ENV === 'production' ? '.env.production' : '.env';
 dotenv.config({ path: envFile, override: true });
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -35,6 +37,7 @@ const config = {
   env: NODE_ENV,
   isProduction: NODE_ENV === 'production',
   isDevelopment: NODE_ENV === 'development',
+  allowDevAuthBypass: NODE_ENV === 'development' && ALLOW_DEV_AUTH_BYPASS,
   port: PORT,
   semaphore: {
     apiKey: SEMAPHORE_API_KEY,

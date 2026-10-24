@@ -13,7 +13,8 @@ const { auth, db, isFirebaseInitialized } = require('../config/firebase.config')
  */
 async function verifyFirebaseAuth(req, res, next) {
   if (!isFirebaseInitialized || !auth) {
-    if (config.isDevelopment) {
+    if (config.allowDevAuthBypass) {
+      console.warn('⚠️ [Auth Middleware] Firebase Admin uninitialized: using dev-user mock because ALLOW_DEV_AUTH_BYPASS is true.');
       req.user = { uid: 'dev-user', email: 'dev@saintandrew.test', role: 'admin' };
       return next();
     }
@@ -25,8 +26,8 @@ async function verifyFirebaseAuth(req, res, next) {
 
   const authHeader = req.headers.authorization || '';
   if (!authHeader.startsWith('Bearer ')) {
-    if (config.isDevelopment) {
-      console.log('ℹ️ [Auth Middleware] Development mode: permitting request without Bearer token.');
+    if (config.allowDevAuthBypass) {
+      console.warn('ℹ️ [Auth Middleware] Development mode: permitting request without Bearer token because ALLOW_DEV_AUTH_BYPASS is true.');
       req.user = { uid: 'dev-admin', email: 'admin@saintandrew.test', role: 'admin' };
       return next();
     }
